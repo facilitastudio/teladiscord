@@ -229,8 +229,13 @@
   .frow button{padding:6px 12px;font-size:13px}
 
   #np{display:none;align-items:center;gap:12px;margin:0 12px 6px;padding:8px 12px;background:var(--side);border-radius:8px;flex-shrink:0}
-  #ytBox{display:none;width:128px;height:72px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#000}
-  #ytBox iframe{width:128px;height:72px;display:block;pointer-events:none}
+  /* o bot toca só o som: no lugar do vídeo aparece um disco girando com a capa */
+  #ytBox{display:none;position:relative;width:56px;height:56px;border-radius:50%;flex-shrink:0;background:#0a2238 center/cover no-repeat;box-shadow:0 0 0 3px rgba(255,255,255,.08),0 4px 14px rgba(0,0,0,.45);animation:spin 6s linear infinite}
+  #ytBox::after{content:"";position:absolute;inset:50% auto auto 50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#06121f;box-shadow:0 0 0 3px rgba(255,255,255,.15)}
+  #ytBox.paused{animation-play-state:paused}
+  #ytBox iframe{position:absolute!important;width:1px!important;height:1px!important;opacity:0;pointer-events:none;left:0;top:0}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){#ytBox{animation:none}}
   #spBox{display:none;width:260px;height:80px;flex-shrink:0;border-radius:12px;overflow:hidden}
   #np .info{flex:1;min-width:0}
   #np .info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2393,6 +2398,8 @@ async function syncMusic() {
   if (cur.kind === 'yt') {
     await loadYT(); if (playingKey !== key) return;
     $('ytBox').style.display = 'block';
+    $('ytBox').style.backgroundImage = /^[\w-]{6,20}$/.test(cur.media_id) ? 'url("https://i.ytimg.com/vi/' + cur.media_id + '/hqdefault.jpg")' : '';
+    $('ytBox').title = cur.title;
     if (!ytPlayer) {
       await new Promise(res => {
         ytPlayer = new YT.Player('ytPlayer', {
@@ -2400,7 +2407,7 @@ async function syncMusic() {
           playerVars: { autoplay: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, start: Math.floor(elapsed(cur)) },
           events: {
             onReady: e => { e.target.setVolume(vol()); e.target.seekTo(elapsed(cur), true); e.target.playVideo(); res(); },
-            onStateChange: e => { if (e.data === 0) reportEnd(); if (e.data === 1) $('sound').style.display = 'none'; },
+            onStateChange: e => { if (e.data === 0) reportEnd(); if (e.data === 1) $('sound').style.display = 'none'; $('ytBox').classList.toggle('paused', e.data !== 1); },
           },
         });
       });
