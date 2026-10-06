@@ -715,7 +715,8 @@ let mode = 'server';            // 'server' ou 'dm'
 let chatView = null;            // { type: 'ch'|'dm', id }
 const msgCache = new Map(), unread = new Map();
 let friends = [], dmPartners = new Set(), friendsTab = 'all';
-let presence = null, presenceReady = false;
+const pres = new Map();          // servidor -> { ch, ready } (presença do servidor aberto e do servidor da voz)
+let voiceServer = null, voiceChannels = [];
 let members = new Map();        // peerId -> {id, uid, room, seq, screen, cam, mic}
 let myRoom = null, mySeq = 0;
 let peer = null, peerId = null;
@@ -827,14 +828,14 @@ function serverIconDialog(s) {
 async function openServer(sid) {
   if (!servers.some(s => s.id === sid)) sid = PUBLIC_ID;
   if (sid !== curServer) {
-    leaveVoice();
-    if (presence) { const old = presence; presence = null; try { await sb.removeChannel(old); } catch (e) {} }
-    members = new Map(); presenceReady = false;
+    // continua na sala de voz: só troca o servidor que você está vendo
+    const prev = curServer;
     curServer = sid;
+    if (prev && prev !== voiceServer) dropPresence(prev);
     try { localStorage.setItem('xc_server', sid); } catch (e) {}
     await loadChannels();
     await loadMusic();
-    joinPresence(false);
+    if (!pres.has(sid)) joinPresence(sid, false);
   }
   mode = 'server';
   const first = channels.find(c => c.kind === 'voice') || channels[0];
@@ -846,6 +847,7 @@ async function openServer(sid) {
 async function loadChannels() {
   const { data } = await sb.from('channels').select('*').eq('server_id', curServer).order('position').order('created_at');
   channels = data || [];
+  if (curServer === voiceServer) voiceChannels = channels.slice();
 }
 
 function createServerDialog() {
@@ -972,42 +974,64 @@ async function serverSettings() {
 }
 
 /* ===================== Presença nas salas (Supabase Realtime) ===================== */
-function joinPresence(allowPublic) {
-  const sid = curServer;
+function joinPresence(sid, allowPublic) {
   const ch = sb.channel('srv:' + sid, { config: { private: !allowPublic, presence: { key: peerId || me } } });
-  presence = ch;
-  ch.on('presence', { event: 'sync' }, () => { if (presence === ch) onPresence(); });
+  const entry = { ch, ready: false };
+  pres.set(sid, entry);
+  ch.on('presence', { event: 'sync' }, () => { if (pres.get(sid) === entry) onPresence(); });
   ch.subscribe(async status => {
-    if (presence !== ch) return;
-    if (status === 'SUBSCRIBED') { await trackMe(); setTimeout(() => { if (presence === ch) presenceReady = true; }, 3000); }
-    if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !allowPublic) { presence = null; try { await sb.removeChannel(ch); } catch (e) {} if (curServer === sid) joinPresence(true); }
+    if (pres.get(sid) !== entry) return;
+    if (status === 'SUBSCRIBED') { await trackOne(sid, entry); setTimeout(() => { entry.ready = true; }, 3000); }
+    if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !allowPublic) {
+      pres.delete(sid); try { await sb.removeChannel(ch); } catch (e) {}
+      if (sid === curServer || sid === voiceServer) joinPresence(sid, true);
+    }
   });
 }
-async function trackMe() {
-  if (!presence) return;
-  try { await presence.track({ uid: me, peer: peerId, room: myRoom, seq: mySeq, screen: !!local.screen, cam: !!local.cam, mic: !!local.mic }); } catch (e) {}
+function dropPresence(sid) {
+  const e = pres.get(sid); if (!e) return;
+  pres.delete(sid);
+  try { e.ch.untrack(); } catch (x) {}
+  sb.removeChannel(e.ch).catch(() => {});
+  onPresence();
 }
+async function trackOne(sid, entry) {
+  try { await entry.ch.track({ uid: me, peer: peerId, room: sid === voiceServer ? myRoom : null, seq: mySeq, screen: !!local.screen, cam: !!local.cam, mic: !!local.mic }); } catch (e) {}
+}
+async function trackMe() { for (const [sid, e] of pres) await trackOne(sid, e); }
+// junta quem está em cada sala de todos os servidores abertos (salas têm ids únicos)
 async function onPresence() {
-  const state = presence.presenceState();
   const next = new Map();
-  Object.values(state).forEach(arr => { const m = arr[arr.length - 1]; if (m && m.peer) next.set(m.peer, { id: m.peer, uid: m.uid, room: m.room, seq: m.seq, screen: m.screen, cam: m.cam, mic: m.mic }); });
+  pres.forEach(({ ch }) => {
+    Object.values(ch.presenceState()).forEach(arr => {
+      const m = arr[arr.length - 1]; if (!m || !m.peer) return;
+      if (!next.has(m.peer) || m.room) next.set(m.peer, { id: m.peer, uid: m.uid, room: m.room, seq: m.seq, screen: m.screen, cam: m.cam, mic: m.mic });
+    });
+  });
   members = next;
   await ensureProfiles([...members.values()].map(m => m.uid));
   syncMedia(); cleanupMusic(); syncMusic(); renderAll();
 }
 const countIn = cid => [...members.values()].filter(m => m.room === cid).length;
-const chan = id => channels.find(c => c.id === id);
+const chan = id => channels.find(c => c.id === id) || voiceChannels.find(c => c.id === id);
 function joinVoice(cid) {
-  const c = chan(cid); if (!c || c.kind !== 'voice' || cid === myRoom) return;
+  const c = channels.find(x => x.id === cid); if (!c || c.kind !== 'voice' || cid === myRoom) return;
   if (c.max_users && countIn(cid) >= c.max_users) return toast('Esse canal já está cheio (' + c.max_users + ' pessoas).');
+  const oldServer = voiceServer;
   leaveRoomMedia();
   myRoom = cid; mySeq = Date.now();
+  voiceServer = curServer; voiceChannels = channels.slice();
+  if (oldServer && oldServer !== curServer) { dropPresence(oldServer); musicRows.forEach((r, k) => { if (r.server_id === oldServer) musicRows.delete(k); }); }
   trackMe(); syncMusic(); renderAll();
 }
 function leaveVoice() {
   if (!myRoom) return;
   KINDS.forEach(k => { if (local[k]) stopLocal(k, true); });
-  leaveRoomMedia(); myRoom = null; trackMe(); syncMusic(); renderAll();
+  const oldServer = voiceServer;
+  leaveRoomMedia(); myRoom = null; voiceServer = null; voiceChannels = [];
+  trackMe();
+  if (oldServer && oldServer !== curServer) dropPresence(oldServer);
+  syncMusic(); renderAll();
 }
 
 /* ===================== Chamadas (PeerJS, direto entre navegadores) ===================== */
@@ -1304,7 +1328,7 @@ function memberLine(m) {
 function renderNav() {
   const nav = $('nav'); nav.innerHTML = '';
   $('voice').classList.toggle('on', !!myRoom);
-  if (myRoom) $('voiceRoom').textContent = ((chan(myRoom) || {}).name || '') + ' / ' + ((srv() || {}).name || '');
+  if (myRoom) $('voiceRoom').textContent = ((chan(myRoom) || {}).name || '') + ' / ' + ((servers.find(x => x.id === voiceServer) || {}).name || '');
   if (mode === 'dm') return renderDmNav(nav);
   const s = srv();
   $('srvName').textContent = s ? s.name : 'Skipper';
@@ -1818,7 +1842,7 @@ async function ban(u, withIp, after) {
 
 /* ===================== Música ===================== */
 async function loadMusic() {
-  musicRows.clear();
+  musicRows.forEach((r, k) => { if (r.server_id !== voiceServer) musicRows.delete(k); });
   const { data } = await sb.from('channel_music').select('*').eq('server_id', curServer);
   (data || []).forEach(r => musicRows.set(r.channel_id, r));
 }
@@ -1860,7 +1884,7 @@ async function musicRequest(text) {
   if (!room) return botSay('Entre num canal de voz primeiro, ' + dn(me) + '. A música toca no canal em que você está.');
   if (!title && link.url) title = await getTitle(link.url);
   title = cleanTitle(title) || 'Música';
-  const { error } = await sb.from('channel_music').insert({ channel_id: myRoom, server_id: curServer, kind: link.kind, media_id: link.id, title, requested_by: me });
+  const { error } = await sb.from('channel_music').insert({ channel_id: myRoom, server_id: voiceServer, kind: link.kind, media_id: link.id, title, requested_by: me });
   if (error) {
     const cur = curMusic();
     if (error.code === '23505') return botSay('Já tem música tocando em ' + room.name + (cur ? ': "' + cur.title + '"' : '') + '. Só uma por vez: espere acabar ou mande !pular.');
@@ -1869,8 +1893,8 @@ async function musicRequest(text) {
   botSay('Tocando em ' + room.name + ': "' + title + '" (pedido por ' + dn(me) + ')');
 }
 function cleanupMusic() {
-  if (!presenceReady) return;
-  musicRows.forEach(r => { if (!countIn(r.channel_id)) sb.from('channel_music').delete().eq('channel_id', r.channel_id).eq('started_at', r.started_at).then(() => {}); });
+  musicRows.forEach(r => {
+    const e = pres.get(r.server_id); if (!e || !e.ready) return; if (!countIn(r.channel_id)) sb.from('channel_music').delete().eq('channel_id', r.channel_id).eq('started_at', r.started_at).then(() => {}); });
 }
 let ytReady = null, ytPlayer = null, spReady = null, spCtl = null, playingKey = '', endSent = '';
 function loadScript(src) { const s = document.createElement('script'); s.src = src; document.head.appendChild(s); }
@@ -1961,7 +1985,7 @@ function subscribeDb() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_music' }, ({ eventType, new: n, old: o }) => {
       if (eventType === 'DELETE') { const cur = o && musicRows.get(o.channel_id); if (cur && (!o.started_at || cur.started_at === o.started_at)) musicRows.delete(o.channel_id); }
-      else if (n && n.server_id === curServer) musicRows.set(n.channel_id, n);
+      else if (n && (n.server_id === curServer || n.server_id === voiceServer)) musicRows.set(n.channel_id, n);
       syncMusic(); renderNav();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, async ({ new: n, old: o }) => {
@@ -1969,6 +1993,7 @@ function subscribeDb() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members' }, async ({ eventType, new: n, old: o }) => {
       const r = eventType === 'DELETE' ? o : n;
+      if (r && r.user_id === me && eventType === 'DELETE' && r.server_id === voiceServer) leaveVoice();
       if (r && r.user_id === me) { await loadServers(); if (!servers.some(s => s.id === curServer)) openServer(PUBLIC_ID); }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'servers' }, () => loadServers().then(() => renderAll()))
@@ -2005,7 +2030,7 @@ $('chatBtn').onclick = () => {
 };
 applyChatHidden();
 window.addEventListener('resize', paintChatBtn);
-window.addEventListener('beforeunload', () => { try { if (presence) presence.untrack(); if (peer) peer.destroy(); } catch (e) {} });
+window.addEventListener('beforeunload', () => { try { pres.forEach(e => e.ch.untrack()); if (peer) peer.destroy(); } catch (e) {} });
 </script>
 </body>
 </html>
