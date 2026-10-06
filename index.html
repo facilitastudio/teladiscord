@@ -929,8 +929,8 @@ let onlineCh = null;
 const statusOf = uid => uid === me ? (myStatus === 'invisible' ? 'invisible' : myStatus) : (onlineMap.get(uid) || 'offline');
 function paintDot(d, uid) { const st = statusOf(uid); d.className = 'sdot' + (st === 'offline' || st === 'invisible' ? ' offline' : ''); d.style.background = (st === 'offline' || st === 'invisible') ? '' : STATUS[st][1]; d.title = STATUS[st][0]; }
 function refreshDots() { document.querySelectorAll('[data-sdot]').forEach(d => paintDot(d, d.dataset.sdot)); }
-function joinOnline(allowPublic) {
-  const ch = sb.channel('online', { config: { private: !allowPublic, presence: { key: me } } });
+function joinOnline(tries = 0) {
+  const ch = sb.channel('online', { config: { private: true, presence: { key: me } } });
   onlineCh = ch;
   ch.on('presence', { event: 'sync' }, () => {
     if (onlineCh !== ch) return;
@@ -940,8 +940,11 @@ function joinOnline(allowPublic) {
   });
   ch.subscribe(async st => {
     if (onlineCh !== ch) return;
-    if (st === 'SUBSCRIBED') trackOnline();
-    if ((st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') && !allowPublic) { onlineCh = null; try { await sb.removeChannel(ch); } catch (e) {} joinOnline(true); }
+    if (st === 'SUBSCRIBED') { tries = 0; trackOnline(); }
+    if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') {
+      onlineCh = null; sb.removeChannel(ch).catch(() => {});
+      setTimeout(() => { if (!onlineCh) joinOnline(tries + 1); }, Math.min(15000, 1000 * Math.pow(2, tries)));
+    }
   });
 }
 async function trackOnline() {
@@ -1225,7 +1228,7 @@ async function startApp(session) {
   $('app').style.display = 'grid';
   renderMe(); updateButtons(); applyGuest();
   subscribeDb();
-  joinOnline(false);
+  joinOnline();
   await bootPeer();
   await loadServers();
   await loadFriends();
@@ -1325,7 +1328,7 @@ async function openServer(sid) {
     try { localStorage.setItem('xc_server', sid); } catch (e) {}
     await loadChannels();
     await loadMusic();
-    if (!pres.has(sid)) joinPresence(sid, false);
+    if (!pres.has(sid)) joinPresence(sid);
   }
   mode = 'server';
   const first = channels.find(c => c.kind === 'voice') || channels[0];
@@ -1470,17 +1473,20 @@ async function serverSettings() {
 }
 
 /* ===================== Presença nas salas (Supabase Realtime) ===================== */
-function joinPresence(sid, allowPublic) {
-  const ch = sb.channel('srv:' + sid, { config: { private: !allowPublic, presence: { key: peerId || me } } });
+// Se a conexão cair, entra de novo no MESMO canal privado (antes ia para um canal público com o mesmo nome,
+// que é outro lugar: a pessoa sumia da sala para os outros, apesar de continuar conectada).
+function joinPresence(sid, tries = 0) {
+  const ch = sb.channel('srv:' + sid, { config: { private: true, presence: { key: peerId || me } } });
   const entry = { ch, ready: false };
   pres.set(sid, entry);
   ch.on('presence', { event: 'sync' }, () => { if (pres.get(sid) === entry) onPresence(); });
   ch.subscribe(async status => {
     if (pres.get(sid) !== entry) return;
-    if (status === 'SUBSCRIBED') { await trackOne(sid, entry); setTimeout(() => { entry.ready = true; }, 3000); }
-    if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !allowPublic) {
-      pres.delete(sid); try { await sb.removeChannel(ch); } catch (e) {}
-      if (sid === curServer || sid === voiceServer) joinPresence(sid, true);
+    if (status === 'SUBSCRIBED') { tries = 0; await trackOne(sid, entry); setTimeout(() => { entry.ready = true; }, 3000); }
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      pres.delete(sid); sb.removeChannel(ch).catch(() => {});
+      const wait = Math.min(15000, 1000 * Math.pow(2, tries));
+      setTimeout(() => { if (!pres.has(sid) && (sid === curServer || sid === voiceServer)) joinPresence(sid, tries + 1); }, wait);
     }
   });
 }
@@ -3554,6 +3560,16 @@ async function announcePanel() {
   ]);
 }
 $('annBtn').onclick = e => { e.stopPropagation(); announcePanel(); };
+
+/* volta para a aba (celular desbloqueado, app trazido para frente): confere se ainda está na lista */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !me) return;
+  [curServer, voiceServer].forEach(sid => { if (sid && !pres.has(sid)) joinPresence(sid); });
+  if (!onlineCh) joinOnline();
+  trackMe();
+  if (peer && peer.disconnected) { try { peer.reconnect(); } catch (e) {} }
+  setTimeout(syncMedia, 500);
+});
 </script>
 </body>
 </html>
