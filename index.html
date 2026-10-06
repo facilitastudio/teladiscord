@@ -54,6 +54,47 @@
   .pcard .ban{height:110px !important}
   .pcard .ban.img{height:120px !important}
   .media-row{display:flex;gap:8px;flex-wrap:wrap}
+  /* emojis */
+  #chatForm{position:relative}
+  #emojiBtn{width:40px;height:40px;padding:0;flex-shrink:0;border-radius:50%;background:#0f2338;border:1px solid var(--line);font-size:20px;line-height:1;filter:grayscale(.35)}
+  #emojiBtn:hover,#emojiBtn.on{filter:none;border-color:var(--acc)}
+  #emojiPop{position:absolute;bottom:calc(100% + 6px);left:12px;right:12px;max-width:360px;height:320px;display:none;flex-direction:column;background:var(--pop);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.55);z-index:20;overflow:hidden}
+  #emojiPop.open{display:flex}
+  #emojiPop .cats{display:flex;gap:2px;padding:6px;border-bottom:1px solid var(--line);overflow-x:auto;flex-shrink:0}
+  #emojiPop .cats button{background:none;padding:6px 8px;font-size:18px;border-radius:10px;opacity:.55}
+  #emojiPop .cats button.cur{opacity:1;background:rgba(0,162,237,.18)}
+  #emojiPop .grid{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));align-content:start;gap:2px}
+  #emojiPop .grid button{background:none;padding:0;height:38px;font-size:24px;border-radius:10px;line-height:1}
+  #emojiPop .grid button:hover{background:rgba(255,255,255,.08);transform:scale(1.15)}
+  #emojiPop .ttl{grid-column:1/-1;font-size:11px;font-weight:800;color:var(--mut);text-transform:uppercase;padding:4px 2px}
+  .msg .b.big{font-size:40px;line-height:1.15;background:none!important;box-shadow:none!important;padding:0 2px!important}
+
+  /* ligação */
+  #callBox{position:fixed;right:18px;bottom:18px;z-index:70;width:min(340px,calc(100vw - 24px));display:none;flex-direction:column;gap:12px;padding:16px;border-radius:22px;background:linear-gradient(160deg,#103a5e,#0a2238 60%);border:1px solid rgba(0,162,237,.45);box-shadow:0 18px 50px rgba(0,0,0,.6)}
+  #callBox.open{display:flex}
+  #callBox.big{width:min(720px,calc(100vw - 24px))}
+  #callBox .cwho{display:flex;align-items:center;gap:12px}
+  #callBox .cwho .av{position:relative;flex-shrink:0}
+  #callBox.ring .who .av::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--acc);animation:ringp 1.2s ease-out infinite}
+  @keyframes ringp{from{transform:scale(.9);opacity:1}to{transform:scale(1.35);opacity:0}}
+  #callBox .cwho b{display:block;font-size:16px}
+  #callBox .cwho small{color:var(--mut);font-size:12px}
+  #callBox .vids{position:relative;display:none;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9}
+  #callBox .vids.on{display:block}
+  #callBox .vids video{width:100%;height:100%;object-fit:contain;display:block}
+  #callBox .vids .mine{position:absolute;right:8px;bottom:8px;width:28%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;border:2px solid rgba(255,255,255,.25);display:none;transform:scaleX(-1)}
+  #callBox .vids .mine.on{display:block}
+  #callBox .btns{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+  #callBox .btns button{width:48px;height:48px;padding:0;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
+  #callBox .btns button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #callBox .btns button.off{background:rgba(242,63,67,.2);color:#ff8a8d}
+  #callBox .btns button.on{background:rgba(0,162,237,.3)}
+  #callBox .btns .end{background:var(--red);width:56px}
+  #callBox .btns .end svg{transform:rotate(135deg)}
+  #callBox .btns .ok{background:var(--green);width:56px}
+  #callBox .btns button.wide{width:auto;padding:0 16px;border-radius:999px;font-size:13px}
+  @media (max-width:520px){#callBox{right:12px;left:12px;bottom:12px;width:auto}#callBox.big{width:auto}}
+
   #installBar{position:fixed;left:50%;bottom:18px;transform:translate(-50%,140%);z-index:60;display:flex;align-items:center;gap:12px;width:min(520px,calc(100vw - 32px));padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,#0d2c48,#0a2238);border:1px solid rgba(0,162,237,.45);box-shadow:0 14px 40px rgba(0,0,0,.5);transition:transform .35s cubic-bezier(.2,.9,.3,1.2)}
   #installBar.on{transform:translate(-50%,0)}
   #installBar img{width:42px;height:42px;border-radius:12px;flex:none}
@@ -65,6 +106,8 @@
   .socials{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .soc{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:var(--soft);text-decoration:none;font-size:12px;max-width:100%}
   .soc:hover{background:rgba(0,162,237,.18);border-color:var(--acc)}
+  .callbtn{display:inline-flex;align-items:center;gap:6px;margin-left:auto;margin-right:6px;padding:6px 12px;border-radius:999px;background:var(--green);font-size:13px}
+  .callbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .soc b{font-weight:800;color:var(--txt)}
   .soc span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;color:var(--mut)}
   .sogrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -649,13 +692,16 @@
     <form id="chatForm" autocomplete="off">
       <button type="button" id="attach" title="Enviar imagem"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg></button>
       <input type="file" id="imgFile" accept="image/*" hidden>
+      <button type="button" id="emojiBtn" title="Emojis">😊</button>
       <input id="chatInput" maxlength="2000" placeholder="Conversar">
+      <div id="emojiPop"></div>
     </form>
   </aside>
 </div>
 
 <div id="modal"><div class="box" id="mbox"></div></div>
 <div id="pop"></div>
+<div id="callBox"></div>
 <div id="toast"></div>
 <button id="sound" class="primary">Clique para ativar o áudio da sala</button>
 <div id="lightbox"><img alt=""></div>
@@ -687,6 +733,7 @@ const ICON = {
   gear: '<svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
   speaker: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  phone: '<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
   head: '<svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/></svg>',
   headOff: '<svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/><path d="M3 3l18 18" stroke="#f23f43"/></svg>',
   leave: '<svg viewBox="0 0 24 24"><path d="M3 15c5-5 13-5 18 0l-2.5 2.5-3-1.5v-2.5a10 10 0 0 0-5 0V16l-3 1.5z"/></svg>',
@@ -1234,6 +1281,7 @@ const countIn = cid => [...members.values()].filter(m => m.room === cid).length;
 const chan = id => channels.find(c => c.id === id) || voiceChannels.find(c => c.id === id);
 function joinVoice(cid) {
   const c = channels.find(x => x.id === cid); if (!c || c.kind !== 'voice' || cid === myRoom) return;
+  if (dmCall) endCall('ended');
   if (c.max_users && countIn(cid) >= c.max_users) return toast('Esse canal já está cheio (' + c.max_users + ' pessoas).');
   const oldServer = voiceServer;
   leaveRoomMedia();
@@ -1299,6 +1347,7 @@ function leaveRoomMedia() {
   focusId = null;
 }
 function onCall(call) {
+  if (call.metadata && call.metadata.dm) return onDmMedia(call);
   const k = (call.metadata && call.metadata.kind) || 'screen';
   const key = call.peer + ':' + k;
   const old = inCalls.get(key);
@@ -1463,6 +1512,8 @@ async function toggle(kind) {
 // silenciar a chamada: para de ouvir todo mundo (e a música) e desliga o microfone, sem sair da sala
 function applyDeaf() {
   audios.forEach(a => { a.muted = deaf; });
+  if (dmCall && dmCall.audio) dmCall.audio.muted = deaf;
+  if (dmCall && dmCall.rv) dmCall.rv.muted = true;
   tiles.forEach(t => { const v = t.querySelector('video'); if (v && t.querySelector('[data-a="som"]')) v.muted = deaf || !t.wantSound; });
   try { if (ytPlayer && ytPlayer.mute) { if (deaf) ytPlayer.mute(); else ytPlayer.unMute(); } } catch (e) {}
   try { if (spCtl) { if (deaf) spCtl.pause(); else spCtl.resume(); } } catch (e) {}
@@ -1686,7 +1737,7 @@ function renderNav() {
     row.onclick = () => { if (full) return toast('Essa sala já está cheia.'); joinVoice(c.id); openChat({ type: 'ch', id: c.id }); };
     const card = el('div', 'room' + (myRoom === c.id ? ' active' : '') + (full ? ' full' : ''));
     card.appendChild(row);
-    const who = el('div', 'who');
+    const who = el('div', 'cwho');
     [...members.values()].filter(m => m.room === c.id).forEach(m => who.appendChild(memberLine(m)));
     const mu = musicRows.get(c.id);
     if (mu) { const line = el('div'); line.appendChild(avatarEl('bot', 26)); line.appendChild(el('span', 'n', BOT)); line.appendChild(el('span', 'st', mu.title)); who.appendChild(line); }
@@ -1800,6 +1851,11 @@ function renderChatHead() {
   else if (chatView.type === 'ch') { const c = chan(chatView.id) || {}; t.appendChild(el('i', null, c.kind === 'music' ? '♪' : '#')); t.appendChild(el('span', null, c.kind === 'music' ? (c.name || '') : 'chat de ' + (c.name || ''))); }
   else { t.appendChild(avatarEl(chatView.id, 24)); t.appendChild(el('span', null, dn(chatView.id))); }
   box.appendChild(t);
+  if (chatView && chatView.type === 'dm' && !isGuest) {
+    const uid = chatView.id;
+    const cb = el('button', 'callbtn'); cb.type = 'button'; cb.title = 'Ligar para ' + dn(uid); cb.innerHTML = ICON.phone + '<span>Ligar</span>';
+    cb.onclick = () => startCall(uid); box.appendChild(cb);
+  }
   const x = el('button', null, '✕'); x.id = 'chatClose'; x.type = 'button'; x.onclick = () => $('chat').classList.remove('open'); box.appendChild(x);
 }
 async function fetchMessages(v) {
@@ -1858,7 +1914,7 @@ function appendMsg(m) {
   if (m.is_bot) h.appendChild(el('span', 'botag', 'BOT'));
   h.append(fmtTime(ts));
   c.appendChild(h);
-  if (m.content) c.appendChild(el('div', 'b', m.content));
+  if (m.content) c.appendChild(el('div', 'b' + (onlyEmoji(m.content) ? ' big' : ''), m.content));
   if (safeImg(m.image_url)) {
     const im = el('img', 'mimg'); im.src = m.image_url; im.alt = 'Imagem enviada';
     im.onload = () => { if (atBottom) box.scrollTop = box.scrollHeight; };
@@ -2050,7 +2106,10 @@ async function showCard(uid, ev) {
   else if (uid === me) { const e = el('button', 'primary', 'Editar perfil'); e.onclick = () => { closePop(); editProfile(); }; acts.appendChild(e); }
   else {
     const uname = (profiles.get(uid) || {}).username;
-    if (isFriend(uid)) { const m = el('button', 'primary', 'Mensagem'); m.onclick = () => { closePop(); openDM(uid); }; acts.appendChild(m); }
+    if (isFriend(uid)) {
+      const m = el('button', 'primary', 'Mensagem'); m.onclick = () => { closePop(); openDM(uid); }; acts.appendChild(m);
+      const l = el('button', null, 'Ligar'); l.onclick = () => { closePop(); startCall(uid); }; acts.appendChild(l);
+    }
     else if (!friends.some(f => friendOf(f) === uid)) {
       const a = el('button', 'primary', 'Adicionar amigo');
       a.onclick = async () => { const { data } = await sb.rpc('add_friend', { p_username: uname }); toast(data === 'aceito' ? 'Agora vocês são amigos!' : 'Pedido de amizade enviado.'); loadFriends(); closePop(); };
@@ -2493,6 +2552,7 @@ function subscribeDb() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'servers' }, () => loadServers().then(() => renderAll()))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => loadFriends())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_calls' }, ({ new: n }) => { if (n && n.id) onCallRow(n); })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, ({ new: p }) => {
       if (!p || !p.id) return;
       if (p.id === me && p.banned) { location.reload(); return; }
@@ -2574,6 +2634,257 @@ if (isIOS() && !isStandalone()) setTimeout(() => {
   let last = 0; try { last = Number(localStorage.getItem('xc_install_no') || 0); } catch (x) {}
   if (Date.now() - last > 7 * 864e5) installBar(true);
 }, 6000);
+
+/* ===================== Emojis no chat ===================== */
+const EMOJI = [
+  ['😀', 'Carinhas', '😀 😃 😄 😁 😆 😅 🤣 😂 🙂 🙃 😉 😊 😇 🥰 😍 🤩 😘 😗 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😑 😶 😏 😒 🙄 😬 😮‍💨 😌 😔 😪 🤤 😴 😷 🤒 🤕 🤢 🤮 🥵 🥶 🥴 😵 🤯 🤠 🥳 🥸 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 🥹 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 👿 💀 ☠️ 💩 🤡 👻 👽 🤖 😺 😸 😹 😻 😼 😽 🙀 😿 😾'],
+  ['👍', 'Gestos', '👍 👎 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 🫡 👏 🙌 🫶 👐 🤲 🤝 🙏 ✍️ 💅 💪 🦾 🧠 👀 👁️ 👅 👄 🫦 💋 🙈 🙉 🙊 🤷 🤦 🙋 🙇 💁 🙆 🙅 🧏'],
+  ['❤️', 'Corações', '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❤️‍🔥 ❤️‍🩹 💕 💞 💓 💗 💖 💘 💝 💟 ♥️ 💌 💯 💢 💥 💫 💦 💨 🕳️ 💬 💭 💤'],
+  ['🐶', 'Bichos', '🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🐛 🦋 🐌 🐞 🐢 🐍 🦎 🐙 🦑 🦀 🐠 🐟 🐬 🐳 🦈 🐊 🐘 🦒 🦓 🐄 🐑 🐐 🐈 🐕 🐩 🦜 🌵 🌲 🌴 🍀 🌸 🌻 🌹 🌷 🌈 ☀️ 🌙 ⭐ 🔥 ⚡ ❄️ 🌊'],
+  ['🍕', 'Comida', '🍎 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🌽 🥕 🥔 🍞 🧀 🥚 🍳 🥓 🥩 🍗 🍖 🌭 🍔 🍟 🍕 🥪 🌮 🌯 🥗 🍝 🍜 🍣 🍱 🍤 🍙 🍚 🍦 🍩 🍪 🎂 🍰 🧁 🍫 🍬 🍭 🍿 🥤 🧃 ☕ 🍵 🧉 🍺 🍻 🥂 🍷'],
+  ['⚽', 'Atividades', '⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🎱 🏓 🏸 🥊 🛹 ⛸️ 🎿 🏆 🥇 🥈 🥉 🏅 🎮 🕹️ 🎲 ♟️ 🎯 🎳 🎸 🎹 🥁 🎤 🎧 🎬 🎨 🎭 🎪 🎉 🎊 🎈 🎁 🎀 🪄 🏖️ ✈️ 🚀 🚗 🏎️ 🚲 🛸 ⛵ 🏠 🏫 🗺️'],
+  ['💡', 'Objetos', '📱 💻 🖥️ ⌨️ 🖱️ 🎧 📷 📸 🎥 📺 📻 ⏰ ⌛ 💡 🔦 🕯️ 💸 💰 💎 🔧 🔨 🛠️ ⚙️ 🧲 🔫 💣 🔪 🛡️ 🔮 🧿 💊 🧪 📚 📖 ✏️ 📝 📌 📎 ✂️ 🔒 🔑 🗝️ 🚪 🛏️ 🧸 🎒 👑 🧢 👟 👕 🕶️ ⚓ 🧭 ☸️'],
+  ['✅', 'Símbolos', '✅ ☑️ ✔️ ❌ ❎ ➕ ➖ ✖️ ➗ ❓ ❔ ❕ ❗ ‼️ ⁉️ 💲 ♻️ ⚠️ 🚫 ⛔ 🔞 📵 🆗 🆒 🆕 🆙 🆘 🔝 🔜 🔛 ▶️ ⏸️ ⏹️ ⏺️ ⏭️ 🔁 🔀 🔊 🔇 🔔 🔕 🎵 🎶 ➡️ ⬅️ ⬆️ ⬇️ ↩️ 🔄 ♾️ 💠 🔷 🔶 🟦 🟩 🟥 🟨 ⚫ ⚪ 🇧🇷'],
+];
+const onlyEmoji = t => { t = String(t || '').trim(); if (!t || t.length > 24) return false; return /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\p{Emoji_Modifier}|‍|️|⃣|\s)+$/u.test(t); };
+let emojiRecent = [];
+try { emojiRecent = JSON.parse(localStorage.getItem('xc_emoji') || '[]').slice(0, 24); } catch (e) {}
+function insertEmoji(e) {
+  const i = $('chatInput'); if (i.disabled) return;
+  const a = i.selectionStart ?? i.value.length, b = i.selectionEnd ?? i.value.length;
+  if (i.value.length + e.length > i.maxLength) return;
+  i.value = i.value.slice(0, a) + e + i.value.slice(b);
+  const pos = a + e.length; i.focus(); i.setSelectionRange(pos, pos);
+  emojiRecent = [e, ...emojiRecent.filter(x => x !== e)].slice(0, 24);
+  try { localStorage.setItem('xc_emoji', JSON.stringify(emojiRecent)); } catch (x) {}
+}
+function drawEmoji(cat) {
+  const pop = $('emojiPop'); pop.innerHTML = '';
+  const cats = el('div', 'cats'), grid = el('div', 'grid');
+  const list = [...(emojiRecent.length ? [['🕘', 'Usados agora', emojiRecent.join(' ')]] : []), ...EMOJI];
+  if (!list.some(c => c[1] === cat)) cat = list[0][1];
+  list.forEach(([ic, name, all]) => {
+    const b = el('button', name === cat ? 'cur' : '', ic); b.type = 'button'; b.title = name;
+    b.onclick = ev => { ev.stopPropagation(); drawEmoji(name); }; cats.appendChild(b);
+    if (name !== cat) return;
+    grid.appendChild(el('div', 'ttl', name));
+    all.split(' ').filter(Boolean).forEach(e => { const x = el('button', null, e); x.type = 'button'; x.onclick = ev => { ev.stopPropagation(); insertEmoji(e); }; grid.appendChild(x); });
+  });
+  pop.append(cats, grid); pop.dataset.cat = cat;
+}
+$('emojiBtn').onclick = e => {
+  e.stopPropagation();
+  if ($('chatInput').disabled) return toast('Convidados não podem mandar mensagens. Crie uma conta para conversar.');
+  const pop = $('emojiPop'), open = !pop.classList.contains('open');
+  if (open) drawEmoji(pop.dataset.cat || (emojiRecent.length ? 'Usados agora' : 'Carinhas'));
+  pop.classList.toggle('open', open); $('emojiBtn').classList.toggle('on', open);
+};
+$('emojiPop').onclick = e => e.stopPropagation();
+document.addEventListener('click', () => { $('emojiPop').classList.remove('open'); $('emojiBtn').classList.remove('on'); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('emojiPop').classList.remove('open'); $('emojiBtn').classList.remove('on'); } });
+
+/* ===================== Ligar para um amigo ===================== */
+// a ligação vai direto entre os dois navegadores; a tabela dm_calls só faz o telefone tocar
+let dmCall = null; // { id, other, role, status, otherPeer, mic, micProc, cam, screen, out: Map, audio, rv, t0, timer }
+const CALL_RING_MS = 35000;
+let ringer = null;
+function ring(kind) {
+  stopRing();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const beep = (t, f, d) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f; o.type = 'sine'; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.12, t + .02); g.gain.setValueAtTime(.12, t + d - .05); g.gain.linearRampToValueAtTime(0, t + d); o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + d); };
+  const play = () => { const t = ctx.currentTime + .05; if (kind === 'in') { beep(t, 880, .25); beep(t + .3, 660, .25); beep(t + .6, 880, .25); beep(t + .9, 660, .25); } else { beep(t, 440, .9); } };
+  play(); ringer = { ctx, iv: setInterval(play, kind === 'in' ? 2200 : 3000) };
+}
+function stopRing() { if (!ringer) return; clearInterval(ringer.iv); ringer.ctx.close().catch(() => {}); ringer = null; }
+const fmtDur = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+
+function drawCall() {
+  const box = $('callBox');
+  if (!dmCall) { box.className = ''; box.innerHTML = ''; return; }
+  const c = dmCall, incoming = c.role === 'callee' && c.status === 'ringing';
+  box.className = 'open' + (c.status === 'ringing' ? ' ring' : '') + (c.remoteVideo ? ' big' : '');
+  box.innerHTML = '';
+  const who = el('div', 'cwho'); const av = el('div', 'av'); av.appendChild(avatarEl(c.other, 52)); who.appendChild(av);
+  const tx = el('div'); tx.appendChild(el('b', null, dn(c.other)));
+  const sub = el('small'); sub.id = 'callSub';
+  sub.textContent = incoming ? 'Está ligando para você...' : c.status === 'ringing' ? 'Chamando...' : c.connected ? 'Em ligação · ' + fmtDur((Date.now() - c.t0) / 1000) : 'Conectando...';
+  tx.appendChild(sub); who.appendChild(tx); box.appendChild(who);
+  // vídeo
+  const vids = el('div', 'vids' + (c.remoteVideo || c.cam || c.screen ? ' on' : ''));
+  if (!c.rv) { c.rv = document.createElement('video'); c.rv.autoplay = true; c.rv.playsInline = true; c.rv.muted = true; }
+  if (!c.lv) { c.lv = document.createElement('video'); c.lv.autoplay = true; c.lv.playsInline = true; c.lv.muted = true; c.lv.className = 'mine'; }
+  c.lv.classList.toggle('on', !!(c.cam || c.screen));
+  c.lv.style.transform = c.cam ? '' : 'none';
+  const lsrc = c.cam || c.screen || null; if (c.lv.srcObject !== lsrc) c.lv.srcObject = lsrc;
+  c.rv.style.display = c.remoteVideo ? '' : 'none';
+  if (c.rv.srcObject !== (c.remoteVideo || null)) c.rv.srcObject = c.remoteVideo || null;
+  c.rv.ondblclick = () => (vids.requestFullscreen || vids.webkitRequestFullscreen || (() => {})).call(vids);
+  vids.append(c.rv, c.lv); box.appendChild(vids);
+  // botões
+  const btns = el('div', 'btns');
+  const B = (cls, icon, tip, fn) => { const b = el('button', cls); b.type = 'button'; b.innerHTML = icon; b.title = tip; b.onclick = fn; btns.appendChild(b); return b; };
+  if (incoming) {
+    B('end', ICON.phone, 'Recusar', () => endCall('declined'));
+    B('ok', ICON.phone, 'Atender', () => acceptCall());
+  } else {
+    B(c.mic && c.mic.getAudioTracks()[0] && c.mic.getAudioTracks()[0].enabled ? '' : 'off', c.mic && c.mic.getAudioTracks()[0] && c.mic.getAudioTracks()[0].enabled ? ICON.mic : ICON.micOff, 'Microfone', () => { const t = c.mic && c.mic.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; drawCall(); } });
+    B(c.cam ? 'on' : '', c.cam ? ICON.cam : ICON.camOff, c.cam ? 'Desligar câmera' : 'Ligar câmera', () => callMedia('cam'));
+    B(c.screen ? 'on' : '', ICON.screen, c.screen ? 'Parar de mostrar a tela' : 'Mostrar a tela', () => callMedia('screen'));
+    B('end', ICON.phone, 'Desligar', () => endCall('ended'));
+  }
+  box.appendChild(btns);
+}
+setInterval(() => { if (dmCall && dmCall.connected) { const s = $('callSub'); if (s) s.textContent = 'Em ligação · ' + fmtDur((Date.now() - dmCall.t0) / 1000); } }, 1000);
+
+async function callMic() {
+  try { const o = await openMic(); return o; }
+  catch (e) { toast('Não consegui acessar o microfone. Verifique a permissão do navegador.'); return null; }
+}
+async function startCall(uid) {
+  if (isGuest) return toast('Convidados não podem ligar. Crie uma conta.');
+  if (!isFriend(uid)) return toast('Você só pode ligar para amigos.');
+  if (dmCall) return toast('Você já está numa ligação.');
+  if (!peer || !peerId) return toast('A conexão de voz ainda está carregando. Tente de novo em alguns segundos.');
+  if (myRoom) { leaveVoice(); toast('Você saiu da sala de voz para fazer a ligação.'); }
+  const m = await callMic(); if (!m) return;
+  dmCall = { id: null, other: uid, role: 'caller', status: 'ringing', mic: m.s, micProc: m.proc, out: new Map() };
+  sb.auth.getSession().then(({ data }) => { if (dmCall && data.session) dmCall.tok = data.session.access_token; });
+  drawCall(); ring('out');
+  const { data, error } = await sb.from('dm_calls').insert({ callee: uid, caller_peer: peerId }).select().single();
+  if (error || !data) { toast('Não consegui ligar agora.'); return cleanupCall(); }
+  if (!dmCall) { sb.from('dm_calls').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', data.id).then(() => {}); return; }
+  dmCall.id = data.id;
+  dmCall.timer = setTimeout(() => { if (dmCall && dmCall.id === data.id && dmCall.status === 'ringing') { toast(dn(uid) + ' não atendeu.'); endCall('missed'); } }, CALL_RING_MS);
+}
+async function acceptCall() {
+  const c = dmCall; if (!c || c.role !== 'callee' || c.status !== 'ringing') return;
+  stopRing();
+  if (myRoom) leaveVoice();
+  const m = await callMic(); if (!m) return endCall('declined');
+  if (dmCall !== c) { m.s.getTracks().forEach(t => t.stop()); closeProc(m.proc); return; }
+  c.mic = m.s; c.micProc = m.proc; c.status = 'active';
+  sb.auth.getSession().then(({ data }) => { if (data.session) c.tok = data.session.access_token; });
+  const { error } = await sb.from('dm_calls').update({ status: 'active', callee_peer: peerId }).eq('id', c.id).eq('status', 'ringing');
+  if (error) { toast('Essa ligação já terminou.'); return cleanupCall(); }
+  drawCall(); sendCallMedia();
+}
+// manda meu microfone (e câmera/tela, se ligados) para o outro lado
+function sendCallMedia() {
+  const c = dmCall; if (!c || c.status !== 'active' || !c.otherPeer || !peer) return;
+  ['mic', 'cam', 'screen'].forEach(k => {
+    const s = c[k]; const cur = c.out.get(k);
+    if (!s) { if (cur) { try { cur.close(); } catch (e) {} c.out.delete(k); } return; }
+    if (cur) return;
+    const call = peer.call(c.otherPeer, s, { metadata: { dm: c.id, kind: k } }); if (!call) return;
+    c.out.set(k, call);
+    call.on('close', () => { if (c.out.get(k) === call) c.out.delete(k); });
+    call.on('error', () => {});
+  });
+}
+function onDmMedia(call) {
+  const c = dmCall, md = call.metadata || {};
+  // quem ligou pode receber o áudio de quem atendeu antes do aviso do banco chegar
+  if (c && c.role === 'caller' && c.status === 'ringing' && c.id && md.dm === c.id) {
+    clearTimeout(c.timer); stopRing(); c.status = 'active'; c.otherPeer = call.peer; drawCall(); setTimeout(sendCallMedia, 0);
+  }
+  // só aceita mídia da ligação atual e do aparelho certo
+  if (!c || c.status !== 'active' || md.dm !== c.id || call.peer !== c.otherPeer || !['mic', 'cam', 'screen'].includes(md.kind)) { try { call.close(); } catch (e) {} return; }
+  c.in = c.in || new Map();
+  const old = c.in.get(md.kind); if (old && old !== call) { try { old.close(); } catch (e) {} }
+  c.in.set(md.kind, call);
+  call.answer();
+  call.on('stream', s => {
+    if (dmCall !== c) return;
+    if (md.kind === 'mic') {
+      if (!c.audio) { c.audio = document.createElement('audio'); c.audio.autoplay = true; document.body.appendChild(c.audio); }
+      c.audio.srcObject = s; c.audio.muted = deaf; c.audio.play().catch(() => { $('sound').style.display = 'block'; });
+      if (!c.connected) { c.connected = true; c.t0 = Date.now(); stopRing(); }
+      clearTimeout(c.lost);
+    } else { c.remoteVideo = s; c.remoteKind = md.kind; }
+    drawCall();
+  });
+  call.on('close', () => {
+    if (dmCall !== c || c.in.get(md.kind) !== call) return;
+    c.in.delete(md.kind);
+    if (md.kind === 'mic') { c.lost = setTimeout(() => { if (dmCall === c && !c.in.has('mic')) { toast('A ligação caiu.'); endCall('ended'); } }, 6000); }
+    else if (c.remoteKind === md.kind) { c.remoteVideo = null; drawCall(); }
+  });
+  call.on('error', () => {});
+}
+async function callMedia(kind) {
+  const c = dmCall; if (!c) return;
+  if (c[kind]) {
+    c[kind].getTracks().forEach(t => t.stop()); c[kind] = null;
+    const o = c.out.get(kind); if (o) { try { o.close(); } catch (e) {} c.out.delete(kind); }
+    return drawCall();
+  }
+  let s;
+  try {
+    if (kind === 'cam') s = await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false });
+    else { const opt = await screenPicker(); if (!opt) return; s = await navigator.mediaDevices.getDisplayMedia(opt); }
+  } catch (e) { if (kind === 'cam') toast('Não consegui acessar a câmera.'); return; }
+  if (dmCall !== c) { s.getTracks().forEach(t => t.stop()); return; }
+  // câmera e tela usam o mesmo espaço de vídeo: liga um, desliga o outro
+  const other = kind === 'cam' ? 'screen' : 'cam';
+  if (c[other]) { c[other].getTracks().forEach(t => t.stop()); c[other] = null; const o = c.out.get(other); if (o) { try { o.close(); } catch (e) {} c.out.delete(other); } }
+  c[kind] = s;
+  s.getVideoTracks()[0].addEventListener('ended', () => { if (dmCall === c && c[kind] === s) callMedia(kind); });
+  drawCall(); sendCallMedia();
+}
+function cleanupCall() {
+  const c = dmCall; dmCall = null; stopRing();
+  if (c) {
+    clearTimeout(c.timer); clearTimeout(c.lost);
+    ['mic', 'cam', 'screen'].forEach(k => { if (c[k]) c[k].getTracks().forEach(t => t.stop()); });
+    closeProc(c.micProc);
+    (c.out || new Map()).forEach(x => { try { x.close(); } catch (e) {} });
+    (c.in || new Map()).forEach(x => { try { x.close(); } catch (e) {} });
+    if (c.audio) { c.audio.srcObject = null; c.audio.remove(); }
+  }
+  drawCall();
+}
+async function endCall(status) {
+  const c = dmCall; if (!c) return;
+  const id = c.id;
+  cleanupCall();
+  if (id) await sb.from('dm_calls').update({ status, ended_at: new Date().toISOString() }).eq('id', id).in('status', ['ringing', 'active']);
+}
+// mudanças na tabela de ligações (chega para quem ligou e para quem recebeu)
+async function onCallRow(r) {
+  if (r.callee === me && r.status === 'ringing' && !dmCall) {
+    if (Date.now() - Date.parse(r.created_at) > CALL_RING_MS) return;
+    if (myStatus === 'busy') return; // "Ocupado": não toca
+    await ensureProfiles([r.caller]);
+    if (dmCall) return;
+    dmCall = { id: r.id, other: r.caller, role: 'callee', status: 'ringing', otherPeer: r.caller_peer, out: new Map() };
+    drawCall(); ring('in');
+    dmCall.timer = setTimeout(() => { if (dmCall && dmCall.id === r.id && dmCall.status === 'ringing') { cleanupCall(); toast('Você perdeu uma ligação de ' + dn(r.caller) + '.'); } }, CALL_RING_MS);
+    return;
+  }
+  if (r.callee === me && r.status === 'ringing' && dmCall && dmCall.id !== r.id) {
+    // já estou em outra ligação: avisa que está ocupado
+    sb.from('dm_calls').update({ status: 'declined', ended_at: new Date().toISOString() }).eq('id', r.id).eq('status', 'ringing').then(() => {});
+    return;
+  }
+  const c = dmCall; if (!c || c.id !== r.id) return;
+  if (r.status === 'active' && c.role === 'caller' && c.status === 'active' && r.callee_peer && c.otherPeer !== r.callee_peer) {
+    toast('Não consegui conectar a ligação.'); endCall('ended');
+  } else if (r.status === 'active' && c.role === 'caller' && c.status === 'ringing' && r.callee_peer) {
+    clearTimeout(c.timer); stopRing();
+    c.status = 'active'; c.otherPeer = r.callee_peer; drawCall(); sendCallMedia();
+    setTimeout(() => { if (dmCall === c && !c.connected) { toast('Não consegui conectar a ligação.'); endCall('ended'); } }, 20000);
+  } else if (r.status === 'active' && c.role === 'callee' && c.status === 'ringing') {
+    cleanupCall(); // atendida em outra aba ou aparelho
+  } else if (['ended', 'declined', 'missed'].includes(r.status)) {
+    const msg = r.status === 'declined' && c.role === 'caller' ? dn(c.other) + ' não pode atender agora.' : r.status === 'ended' && c.connected ? 'Ligação encerrada.' : '';
+    cleanupCall(); if (msg) toast(msg);
+  }
+}
+addEventListener('pagehide', () => {
+  if (!dmCall || !dmCall.id || !dmCall.tok) return;
+  const st = dmCall.role === 'callee' && dmCall.status === 'ringing' ? 'missed' : 'ended';
+  fetch(SUPA_URL + '/rest/v1/dm_calls?id=eq.' + dmCall.id, { method: 'PATCH', keepalive: true, headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + dmCall.tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: st, ended_at: new Date().toISOString() }) }).catch(() => {});
+});
 </script>
 </body>
 </html>
