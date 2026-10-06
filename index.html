@@ -668,6 +668,8 @@
   /* avisos no alto da tela, para não tapar a barra de botões */
   #toast{top:76px;bottom:auto;border-radius:14px;padding:11px 18px;font-weight:600;background:var(--pop);border:1px solid var(--g-brd);box-shadow:0 12px 32px rgba(0,0,0,.35);animation:toastIn .22s cubic-bezier(.2,.9,.3,1.2)}
   @keyframes toastIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+  #reloadBtn.spin svg{animation:spin .6s linear infinite}
+  #reloadBtn:hover svg{transform:rotate(40deg);transition:transform .2s}
 </style>
 </head>
 <body>
@@ -762,6 +764,7 @@
     <div class="tb-brand"><img src="logo.svg" alt=""><span>Skip<b>per</b></span></div>
     <nav id="rail"></nav>
     <div class="tb-right" id="tbRight">
+      <button class="themebtn" id="reloadBtn" type="button" title="Recarregar o site (volta para onde você estava)"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>
       <button class="themebtn" id="themeBtn" type="button"></button>
       <div class="me" id="meCard">
         <div class="meinfo" id="meInfo" title="Mudar status"><b id="meName"></b><small id="meUser"></small></div>
@@ -1161,9 +1164,18 @@ async function startApp(session) {
   await bootPeer();
   await loadServers();
   await loadFriends();
-  let first = PUBLIC_ID;
-  try { const s = localStorage.getItem('xc_server'); if (s && servers.some(x => x.id === s)) first = s; } catch (e) {}
+  let first = PUBLIC_ID, resume = null;
+  try { resume = JSON.parse(sessionStorage.getItem('xc_resume') || 'null'); sessionStorage.removeItem('xc_resume'); } catch (e) {}
+  if (resume && Date.now() - (resume.at || 0) > 120000) resume = null;
+  try { const s = (resume && resume.server) || localStorage.getItem('xc_server'); if (s && servers.some(x => x.id === s)) first = s; } catch (e) {}
+  // volta para a sala de voz em que estava (com microfone e câmera desligados)
+  if (resume && resume.room && resume.voiceServer && servers.some(x => x.id === resume.voiceServer)) {
+    await openServer(resume.voiceServer);
+    if (channels.some(c => c.id === resume.room)) joinVoice(resume.room);
+  }
   await openServer(first);
+  if (resume && resume.mode === 'dm') openDM(resume.chat && resume.chat.type === 'dm' ? resume.chat.id : null);
+  else if (resume && resume.chat && resume.chat.type === 'ch' && chan(resume.chat.id)) openChat(resume.chat);
   if (inviteParam) { history.replaceState(null, '', location.pathname); if (isGuest) toast('Convidados não entram em servidores por convite. Crie uma conta.'); else askJoinInvite(inviteParam); }
 }
 
@@ -3337,6 +3349,14 @@ function roomSounds() {
   soundPeers = inRoom;
   if (added) sfx('join'); else if (removed) sfx('leave');
 }
+
+/* ===================== Recarregar e voltar para o mesmo lugar ===================== */
+$('reloadBtn').onclick = e => {
+  e.stopPropagation();
+  try { sessionStorage.setItem('xc_resume', JSON.stringify({ at: Date.now(), server: curServer, mode, chat: chatView, room: myRoom, voiceServer })); } catch (x) {}
+  $('reloadBtn').classList.add('spin');
+  location.reload();
+};
 </script>
 </body>
 </html>
