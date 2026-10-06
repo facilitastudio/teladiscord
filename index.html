@@ -47,6 +47,11 @@
   #strip .tile .bar{padding:6px}
   #strip .tile .bar div{display:none}
   #strip .tile .bar span{font-size:12px}
+  #people{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 16px 0;flex-shrink:0}
+  .chip{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);display:inline-flex;align-items:center;gap:6px}
+  .chip i{width:7px;height:7px;border-radius:50%;background:#3ccf7a;display:inline-block}
+  .chip.live i{background:var(--red)}
+  .chip.me{cursor:pointer;border-color:#3a3a44}
   .app{display:none}
 </style>
 </head>
@@ -54,8 +59,9 @@
 <div id="gate">
   <form id="gateForm" autocomplete="off">
     <h1>Tela Compartilhada</h1>
-    <p>Digite o código de acesso para entrar na sala.</p>
-    <input id="gateInput" type="password" placeholder="Código de acesso" autofocus>
+    <p>Escolha seu nome e digite o código de acesso.</p>
+    <input id="nameInput" type="text" placeholder="Seu nome" maxlength="24" autofocus>
+    <input id="gateInput" type="password" placeholder="Código de acesso">
     <div id="gateErr"></div>
     <button class="primary" type="submit">Entrar</button>
   </form>
@@ -68,6 +74,7 @@
     <button id="shareBtn" class="primary">Compartilhar minha tela</button>
   </div>
 </header>
+<div id="people" class="app"></div>
 <div id="status" class="app">Conectando...</div>
 <main id="grid" class="app">
   <div id="empty"><b>Ninguém está compartilhando ainda</b>Quem entrar com o código aparece aqui. Clique em "Compartilhar minha tela" para mostrar a sua.</div>
@@ -86,24 +93,39 @@ async function sha256(txt) {
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function tryEnter(pass) {
+let myName = '';
+const clean = t => (t || '').replace(/[<>&"']/g, '').trim().slice(0, 24);
+
+async function tryEnter(pass, name) {
   pass = (pass || '').trim().toLowerCase();
-  if (!pass || await sha256(pass) !== ACCESS_HASH) return false;
+  name = clean(name);
+  if (!name) return 'nome';
+  if (!pass || await sha256(pass) !== ACCESS_HASH) return 'codigo';
+  myName = name;
+  try { localStorage.setItem('tela_nome', name); } catch (e) {}
   code = (await sha256(pass + '|sala-principal')).slice(0, 24);
   try { localStorage.setItem('tela_acesso', pass); } catch (e) {}
   document.getElementById('gate').remove();
-  document.querySelectorAll('.app').forEach(el => el.style.display = el.tagName === 'HEADER' ? 'flex' : (el.id === 'grid' ? 'grid' : 'block'));
+  document.querySelectorAll('.app').forEach(el => el.style.display = (el.tagName === 'HEADER' || el.id === 'people') ? 'flex' : (el.id === 'grid' ? 'grid' : 'block'));
   start();
-  return true;
+  renderPeople();
+  return 'ok';
 }
 
 document.getElementById('gateForm').onsubmit = async e => {
   e.preventDefault();
-  const ok = await tryEnter(document.getElementById('gateInput').value);
-  if (!ok) document.getElementById('gateErr').textContent = 'Código incorreto.';
+  const r = await tryEnter(document.getElementById('gateInput').value, document.getElementById('nameInput').value);
+  if (r === 'nome') document.getElementById('gateErr').textContent = 'Digite seu nome.';
+  else if (r === 'codigo') document.getElementById('gateErr').textContent = 'Código incorreto.';
 };
-// entra direto se o código já foi digitado antes neste navegador
-(async () => { let saved = null; try { saved = localStorage.getItem('tela_acesso'); } catch (e) {} if (saved) tryEnter(saved); })();
+// entra direto se nome e código já foram salvos neste navegador
+(async () => {
+  let pass = null, name = null;
+  try { pass = localStorage.getItem('tela_acesso'); name = localStorage.getItem('tela_nome'); } catch (e) {}
+  if (name) document.getElementById('nameInput').value = name;
+  if (pass && name) tryEnter(pass, name);
+  else if (name) document.getElementById('gateInput').focus();
+})();
 
 const $status = document.getElementById('status');
 const $grid = document.getElementById('grid');
@@ -116,6 +138,8 @@ let focusId = null;   // tela em destaque
 let peer = null, isHub = false, hubConn = null;
 const hubConns = new Map();   // só o anfitrião usa: id -> conexão
 let others = [];              // ids das outras pessoas na sala
+const names = new Map();      // id -> nome
+const hubNames = new Map();   // só o anfitrião usa: id -> nome
 let myStream = null;
 const outCalls = new Map();   // chamadas que eu fiz com a minha tela
 const tiles = new Map();      // id -> elemento do vídeo
@@ -137,9 +161,9 @@ function joinAsGuest() {
   const p = new Peer();
   p.on('open', () => {
     peer = p; wire();
-    hubConn = peer.connect(PREFIX + code, { reliable: true });
+    hubConn = peer.connect(PREFIX + code, { reliable: true, metadata: { name: myName } });
     hubConn.on('open', () => setStatus('Conectado à sala. Clique numa tela para dar destaque.'));
-    hubConn.on('data', d => { if (d && d.type === 'members') updateMembers(d.list.filter(id => id !== peer.id)); });
+    hubConn.on('data', d => { if (d && d.type === 'members') updateMembers(d.list.filter(m => m.id !== peer.id)); });
     hubConn.on('close', hubLost);
   });
   p.on('error', e => {
@@ -156,8 +180,8 @@ function hubLost() {
 function wire() {
   peer.on('connection', conn => {
     if (!isHub) return;
-    conn.on('open', () => { hubConns.set(conn.peer, conn); broadcast(); });
-    conn.on('close', () => { hubConns.delete(conn.peer); removeTile(conn.peer); broadcast(); });
+    conn.on('open', () => { hubConns.set(conn.peer, conn); hubNames.set(conn.peer, clean(conn.metadata && conn.metadata.name) || 'Convidado'); broadcast(); });
+    conn.on('close', () => { hubConns.delete(conn.peer); hubNames.delete(conn.peer); removeTile(conn.peer); broadcast(); });
   });
   peer.on('call', call => {
     call.answer();
@@ -168,13 +192,19 @@ function wire() {
 }
 
 function broadcast() {
-  const list = [peer.id, ...hubConns.keys()];
+  const guests = [...hubConns.keys()].map(id => ({ id, name: hubNames.get(id) || 'Convidado' }));
+  const list = [{ id: peer.id, name: myName }, ...guests];
   hubConns.forEach(c => { try { c.send({ type: 'members', list }); } catch (e) {} });
-  updateMembers([...hubConns.keys()]);
+  updateMembers(guests);
 }
 
-function updateMembers(list) {
+function updateMembers(members) {
+  names.clear();
+  members.forEach(m => names.set(m.id, clean(m.name) || 'Convidado'));
+  const list = members.map(m => m.id);
   others = list;
+  tiles.forEach((t, id) => { if (id !== 'eu') t.querySelector('.bar span').textContent = names.get(id) || 'Convidado'; });
+  renderPeople();
   $count.textContent = list.length + 1;
   // quem saiu: encerra chamadas e remove vídeos
   [...outCalls.keys()].forEach(id => { if (!list.includes(id)) { outCalls.get(id).close(); outCalls.delete(id); } });
@@ -217,17 +247,17 @@ function stopShare() {
 $shareBtn.onclick = () => myStream ? stopShare() : shareScreen();
 
 /* ---------- Vídeos ---------- */
-let n = 0;
 function addTile(id, stream, mine) {
   let t = tiles.get(id);
   if (t) { t.querySelector('video').srcObject = stream; return; }
   t = document.createElement('div');
   t.className = 'tile';
-  const label = mine ? 'Sua tela' : 'Tela ' + (++n);
+  const label = mine ? myName + ' (você)' : (names.get(id) || 'Convidado');
   t.innerHTML = `<video autoplay playsinline muted></video>
-    <div class="bar"><span>${label}</span><div>
+    <div class="bar"><span></span><div>
       ${mine ? '' : '<button data-a="som">Ativar som</button>'}
       <button data-a="full">Tela cheia</button></div></div>`;
+  t.querySelector('.bar span').textContent = label;
   const v = t.querySelector('video');
   v.srcObject = stream;
   t.querySelector('[data-a="full"]').onclick = () => (t.requestFullscreen || t.webkitRequestFullscreen).call(t);
@@ -249,11 +279,36 @@ function removeTile(id) {
   layout();
 }
 
+/* ---------- Quem está na sala ---------- */
+function renderPeople() {
+  const box = document.getElementById('people');
+  box.innerHTML = '';
+  const add = (name, live, me) => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (live ? ' live' : '') + (me ? ' me' : '');
+    c.innerHTML = '<i></i>';
+    c.append(name + (me ? ' (você)' : '') + (live ? ' · ao vivo' : ''));
+    if (me) { c.title = 'Clique para trocar seu nome'; c.onclick = changeName; }
+    box.appendChild(c);
+  };
+  add(myName, !!myStream, true);
+  others.forEach(id => add(names.get(id) || 'Convidado', tiles.has(id), false));
+}
+
+function changeName() {
+  const n = clean(prompt('Seu nome:', myName));
+  if (!n || n === myName) return;
+  try { localStorage.setItem('tela_nome', n); } catch (e) {}
+  if (myStream && !confirm('Para trocar o nome a página recarrega e o compartilhamento para. Continuar?')) return;
+  location.reload();
+}
+
 /* ---------- Layout: grade sem scroll ou tela em destaque ---------- */
 function layout() {
   const list = [...tiles.values()];
   if (focusId && !tiles.has(focusId)) focusId = null;
   $empty.style.display = list.length ? 'none' : '';
+  renderPeople();
   $grid.classList.toggle('focus', !!focusId);
   $grid.classList.toggle('solo', !!focusId && list.length === 1);
 
