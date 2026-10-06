@@ -445,7 +445,8 @@
 const SUPA_URL = 'https://hmikqhooyshhxxhgzekw.supabase.co';
 const SUPA_KEY = 'sb_publishable_77I79kJhcCPHG5V3MPpmHA_o1EuXmxV';   // chave pública (protegida pelas regras RLS do banco)
 const PUBLIC_ID = '00000000-0000-0000-0000-000000000001';           // servidor Skipper (todo mundo)
-const NOEMAIL_DOMAIN = 'sem-email.xcordbr.app';                       // contas criadas sem email
+// contas criadas sem email usam um endereço interno no domínio do dono (precisa ser um domínio que recebe email)
+const noEmail = u => 'skipper.' + u + '@jankestudio.com';
 const YT_API_KEY = '';   // opcional: chave da YouTube Data API v3 para !tocar nome
 const BOT = 'Bot de música';
 const KINDS = ['screen', 'cam', 'mic'];
@@ -634,10 +635,11 @@ $('su1Btn').onclick = async () => {
 async function doSignup(email) {
   if (!pendingSignup) return view('signup1');
   const { u, n, p } = pendingSignup;
-  const { data, error } = await sb.auth.signUp({ email: email || (u + '@' + NOEMAIL_DOMAIN), password: p, options: { data: { username: u, display_name: n } } });
+  const { data, error } = await sb.auth.signUp({ email: email || noEmail(u), password: p, options: { data: { username: u, display_name: n } } });
   if (error) {
     if (/registered|already/i.test(error.message)) return authErr('Esse email já está em uso.');
     if (/rate limit/i.test(error.message)) return authErr('Muitos cadastros agora. Tente em alguns minutos.');
+    if (/invalid/i.test(error.message) && email) return authErr('Esse email parece inválido. Confira ou clique em Avançar sem email.');
     return authErr('Não consegui criar a conta: ' + error.message);
   }
   if (!data.session) return authErr('Conta criada, mas o servidor está pedindo confirmação de email. Avise o administrador.');
