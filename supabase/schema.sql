@@ -307,7 +307,7 @@ create policy profiles_update on public.profiles for update to authenticated
 -- servidores: vê os que participa; cria só privado e como dono; dono edita/apaga
 drop policy if exists servers_select on public.servers;
 create policy servers_select on public.servers for select to authenticated
-  using (is_public or public.is_member(id));
+  using (is_public or owner_id = auth.uid() or public.is_member(id));
 drop policy if exists servers_insert on public.servers;
 create policy servers_insert on public.servers for insert to authenticated
   with check (owner_id = auth.uid() and not is_public);
