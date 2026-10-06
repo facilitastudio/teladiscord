@@ -638,6 +638,24 @@
   html[data-theme="light"] .rb.leave{background:linear-gradient(180deg,#ff8f73,#f2593a)}
   html[data-theme="light"] .rb.mut{background:rgba(242,63,67,.12);color:#c62f33}
   html[data-theme="light"] .msg.mine .h{color:rgba(255,255,255,.85)}
+
+  /* janela de confirmação (por cima de qualquer outra) */
+  #dlg{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(3,10,18,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  #dlg.open{display:flex;animation:dlgf .15s ease-out}
+  #dlg .dbox{width:100%;max-width:420px;border-radius:22px;background:var(--panel);border:1px solid var(--g-brd);box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 1px 0 var(--g-hi);padding:22px;display:flex;flex-direction:column;gap:14px;animation:dlgp .18s cubic-bezier(.2,.9,.3,1.25)}
+  #dlg .dico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:rgba(0,162,237,.15);color:var(--acc)}
+  #dlg .dico svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  #dlg.danger .dico{background:rgba(242,63,67,.14);color:var(--red)}
+  #dlg h3{font-size:19px;font-weight:900;line-height:1.25}
+  #dlg p{color:var(--soft);font-size:14px;line-height:1.5}
+  #dlg p b{color:var(--txt)}
+  #dlg .dhint{font-size:12px;color:var(--mut)}
+  #dlg .dact{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+  #dlg .dact button{min-width:110px;padding:11px 16px}
+  #dlg.danger .dact .go{background:linear-gradient(180deg,#ff5f62,#d92b2f);color:#fff}
+  #dlg .dact .go:disabled{opacity:.4;cursor:not-allowed}
+  @keyframes dlgf{from{opacity:0}}
+  @keyframes dlgp{from{transform:scale(.94);opacity:0}}
 </style>
 </head>
 <body>
@@ -814,6 +832,7 @@
 <div id="modal"><div class="box" id="mbox"></div></div>
 <div id="pop"></div>
 <div id="callBox"></div>
+<div id="dlg"></div>
 <div id="toast"></div>
 <button id="sound" class="primary">Clique para ativar o áudio da sala</button>
 <div id="lightbox"><img alt=""></div>
@@ -900,7 +919,7 @@ function statusMenu(ev) {
   const msg = el('div', 'mi', 'Mensagem de status...');
   msg.onclick = async () => {
     closePop();
-    const t = prompt('Sua mensagem de status (aparece para seus contatos):', myProfile.status_text || '');
+    const t = await askDialog({ title: 'Mensagem de status', text: 'Aparece para seus contatos, do lado do seu nome.', ok: 'Salvar', input: { value: myProfile.status_text || '', placeholder: 'Ex.: estudando para a prova', max: 80 } });
     if (t === null) return;
     const v = t.trim().slice(0, 80);
     const { error } = await sb.from('profiles').update({ status_text: v }).eq('id', me);
@@ -1275,7 +1294,7 @@ async function askJoinInvite(code) {
 }
 async function leaveServer() {
   const s = srv(); if (!s || s.is_public) return;
-  if (!confirm('Sair do servidor ' + s.name + '? Você só volta com um novo convite.')) return;
+  if (!await askDialog({ title: 'Sair da comunidade?', text: ['Você vai sair de ', { b: s.name }, '. Para voltar, vai precisar de um novo convite.'], ok: 'Sair', danger: true })) return;
   await sb.from('server_members').delete().eq('server_id', s.id).eq('user_id', me);
   await loadServers(); openServer(PUBLIC_ID);
 }
@@ -1292,7 +1311,7 @@ async function membersDialog() {
     const n = el('div', 'n'); n.appendChild(el('b', null, dn(id) + (id === s.owner_id ? '  (dono)' : ''))); n.appendChild(el('small', null, '@' + p.username)); row.appendChild(n);
     if (s.owner_id === me && id !== me) {
       const k = el('button', 'danger', 'Remover');
-      k.onclick = async () => { if (!confirm('Remover ' + dn(id) + ' do servidor?')) return; await sb.from('server_members').delete().eq('server_id', s.id).eq('user_id', id); row.remove(); };
+      k.onclick = async () => { if (!await askDialog({ title: 'Remover da comunidade?', text: [{ b: dn(id) }, ' sai da comunidade e só volta com um novo convite.'], ok: 'Remover', danger: true })) return; await sb.from('server_members').delete().eq('server_id', s.id).eq('user_id', id); row.remove(); };
       row.appendChild(k);
     }
     list.appendChild(row);
@@ -1308,7 +1327,7 @@ async function serverSettings() {
   const link = el('input'); link.readOnly = true; link.value = inviteUrl(s.invite_code);
   const copy = el('button', null, 'Copiar'); copy.onclick = async () => { try { await navigator.clipboard.writeText(link.value); toast('Link copiado.'); } catch (e) { link.select(); } };
   const regen = el('button', 'danger', 'Gerar novo');
-  regen.onclick = async () => { if (!confirm('O link atual vai parar de funcionar. Continuar?')) return; const { data, error } = await sb.rpc('new_invite', { p_server: s.id }); if (error) return toast(error.message); s.invite_code = data; link.value = inviteUrl(data); toast('Novo link gerado.'); };
+  regen.onclick = async () => { if (!await askDialog({ title: 'Gerar um novo link?', text: 'O link de convite atual vai parar de funcionar.', ok: 'Gerar novo link' })) return; const { data, error } = await sb.rpc('new_invite', { p_server: s.id }); if (error) return toast(error.message); s.invite_code = data; link.value = inviteUrl(data); toast('Novo link gerado.'); };
   const linkRow = el('div', 'copyrow'); linkRow.append(link, copy, regen);
   const chList = el('div'); chList.style.cssText = 'display:flex;flex-direction:column;gap:8px';
   const limitSel = v => { const sel = el('select'); [[0, 'Sem limite'], [2, '2 pessoas'], [3, '3 pessoas'], [4, '4 pessoas'], [5, '5 pessoas'], [10, '10 pessoas']].forEach(([n, t]) => { const o = el('option', null, t); o.value = n; sel.appendChild(o); }); sel.value = v; return sel; };
@@ -1321,7 +1340,7 @@ async function serverSettings() {
       const sv = el('button', null, 'Salvar');
       sv.onclick = async () => { const { error } = await sb.from('channels').update({ name: n.value.trim(), max_users: Number(l.value) }).eq('id', c.id); toast(error ? 'Não consegui salvar.' : 'Canal salvo.'); await loadChannels(); renderAll(); };
       const del = el('button', 'danger', 'Apagar');
-      del.onclick = async () => { if (!confirm('Apagar o canal ' + c.name + ' e as mensagens dele?')) return; await sb.from('channels').delete().eq('id', c.id); await loadChannels(); drawChannels(); renderAll(); };
+      del.onclick = async () => { if (!await askDialog({ title: 'Apagar canal?', text: ['O canal ', { b: c.name }, ' e todas as mensagens dele serão apagados. Não dá para desfazer.'], ok: 'Apagar canal', danger: true })) return; await sb.from('channels').delete().eq('id', c.id); await loadChannels(); drawChannels(); renderAll(); };
       r.append(n, l, sv, del); chList.appendChild(r);
     });
   };
@@ -1338,9 +1357,15 @@ async function serverSettings() {
   const addRow = el('div', 'chedit'); addRow.append(newName, newLim, addB);
   const delSrv = el('button', 'danger', 'Apagar servidor');
   delSrv.onclick = async () => {
-    const t = prompt('Isso apaga o servidor, os canais e as mensagens. Digite o nome do servidor para confirmar:');
-    if (t !== s.name) return;
-    await sb.from('servers').delete().eq('id', s.id); closeModal(); await loadServers(); openServer(PUBLIC_ID);
+    const t = await askDialog({
+      title: 'Apagar a comunidade?', danger: true, ok: 'Apagar para sempre',
+      text: ['Isso apaga ', { b: s.name }, ' com todos os canais e mensagens, e todo mundo perde o acesso. Não dá para desfazer.'],
+      input: { placeholder: s.name, match: s.name, hint: 'Para confirmar, digite o nome da comunidade: ' + s.name },
+    });
+    if (t == null || t.trim() !== s.name) return;
+    const { error } = await sb.from('servers').delete().eq('id', s.id);
+    if (error) return toast('Não consegui apagar: ' + error.message);
+    closeModal(); await loadServers(); openServer(PUBLIC_ID); toast('Comunidade apagada.');
   };
   const iconBtn = el('button', null, 'Trocar foto do servidor'); iconBtn.onclick = () => serverIconDialog(s);
   openModal('Configurações da comunidade', [
@@ -1919,7 +1944,7 @@ function applyGuest() {
   $('reportMini').style.display = 'none';
 }
 async function guestToSignup() {
-  if (!confirm('Para criar uma conta você sai do modo convidado. Continuar?')) return;
+  if (!await askDialog({ title: 'Criar uma conta?', text: 'Para criar uma conta você sai do modo convidado.', ok: 'Continuar' })) return;
   try { localStorage.setItem('xc_goto', 'signup'); } catch (e) {}
   await sb.auth.signOut(); location.reload();
 }
@@ -2148,7 +2173,7 @@ function renderFriends() {
     const n = el('div', 'n'); n.appendChild(el('b', null, dn(uid))); n.appendChild(el('small', null, '@' + (p.username || '') + (f.status === 'pending' ? (f.requester === me ? ' · pedido enviado' : ' · quer ser seu amigo') : ''))); row.appendChild(n);
     if (f.status === 'accepted') {
       const m = el('button', 'primary', 'Mensagem'); m.onclick = () => openChat({ type: 'dm', id: uid }); row.appendChild(m);
-      const r = el('button', null, 'Remover'); r.onclick = async () => { if (!confirm('Remover ' + dn(uid) + ' dos amigos?')) return; await sb.from('friendships').delete().eq('id', f.id); loadFriends(); }; row.appendChild(r);
+      const r = el('button', null, 'Remover'); r.onclick = async () => { if (!await askDialog({ title: 'Desfazer amizade?', text: [{ b: dn(uid) }, ' sai da sua lista de amigos e vocês não podem mais conversar no privado.'], ok: 'Remover', danger: true })) return; await sb.from('friendships').delete().eq('id', f.id); loadFriends(); }; row.appendChild(r);
     } else if (f.addressee === me) {
       const a = el('button', 'primary', 'Aceitar'); a.onclick = async () => { await sb.from('friendships').update({ status: 'accepted' }).eq('id', f.id); loadFriends(); }; row.appendChild(a);
       const r = el('button', null, 'Recusar'); r.onclick = async () => { await sb.from('friendships').delete().eq('id', f.id); loadFriends(); }; row.appendChild(r);
@@ -2499,7 +2524,7 @@ async function adminPanel() {
   draw();
 }
 async function ban(u, withIp, after) {
-  if (!confirm('Banir @' + u.username + (withIp ? ' e os IPs que essa conta usou' : '') + '? A pessoa perde o acesso na hora.')) return;
+  if (!await askDialog({ title: 'Banir @' + u.username + '?', text: 'A pessoa perde o acesso na hora' + (withIp ? ', e os endereços de internet (IP) que essa conta usou também ficam bloqueados.' : '.'), ok: 'Banir', danger: true })) return;
   const { data, error } = await sb.rpc('admin_ban', { p_user: u.id, p_ban: true, p_ip: withIp });
   if (error) return toast('Não consegui banir: ' + error.message);
   toast('@' + u.username + ' banido' + (withIp ? ' (' + data + ' IP(s) bloqueado(s))' : '') + '.');
@@ -3014,6 +3039,43 @@ function setGlass(on) { document.documentElement.classList.toggle('noglass', !on
 $('themeBtn').onclick = e => { e.stopPropagation(); setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); };
 paintTheme();
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', ev => { let t = null; try { t = localStorage.getItem('xc_theme'); } catch (e) {} if (!t) { document.documentElement.dataset.theme = ev.matches ? 'light' : 'dark'; paintTheme(); } });
+
+/* ===================== Janela de confirmação do Skipper ===================== */
+// substitui as caixas cinzas do navegador; devolve true/false (ou o texto digitado)
+function askDialog({ title, text, ok = 'Confirmar', cancel = 'Cancelar', danger = false, input = null }) {
+  return new Promise(resolve => {
+    const d = $('dlg'); d.innerHTML = ''; d.className = 'open' + (danger ? ' danger' : '');
+    const box = el('div', 'dbox'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    const ic = el('div', 'dico'); ic.innerHTML = danger
+      ? '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'
+      : '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>';
+    box.appendChild(ic);
+    box.appendChild(el('h3', null, title));
+    if (text) { const p = el('p'); (Array.isArray(text) ? text : [text]).forEach(x => typeof x === 'string' ? p.append(x) : p.appendChild(el('b', null, x.b))); box.appendChild(p); }
+    let inp = null;
+    if (input) {
+      inp = el('input'); inp.placeholder = input.placeholder || ''; inp.value = input.value || ''; inp.maxLength = input.max || 200; inp.autocomplete = 'off';
+      box.appendChild(inp);
+      if (input.hint) box.appendChild(el('div', 'dhint', input.hint));
+    }
+    const act = el('div', 'dact');
+    const no = el('button', 'ghost', cancel); no.type = 'button';
+    const yes = el('button', 'go' + (danger ? '' : ' primary'), ok); yes.type = 'button';
+    act.append(no, yes); box.appendChild(act); d.appendChild(box);
+    const check = () => { if (input && input.match != null) yes.disabled = inp.value.trim() !== input.match; };
+    if (inp) { inp.oninput = check; check(); }
+    const done = v => { d.className = ''; d.innerHTML = ''; document.removeEventListener('keydown', key, true); resolve(v); };
+    const key = e => {
+      if (e.key === 'Escape') { e.stopPropagation(); done(input ? null : false); }
+      else if (e.key === 'Enter' && !yes.disabled) { e.preventDefault(); yes.click(); }
+    };
+    document.addEventListener('keydown', key, true);
+    no.onclick = () => done(input ? null : false);
+    yes.onclick = () => done(input ? inp.value : true);
+    d.onclick = e => { if (e.target === d) done(input ? null : false); };
+    setTimeout(() => (inp || yes).focus(), 30);
+  });
+}
 </script>
 </body>
 </html>
