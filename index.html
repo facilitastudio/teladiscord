@@ -270,6 +270,11 @@
   #lightbox img{max-width:100%;max-height:100%;border-radius:6px}
 
   .mob{display:none}
+  #app.nochat{grid-template-columns:72px 260px minmax(0,1fr) 0}
+  #app.nochat #chat{display:none}
+  #chatBtn{display:inline-flex;align-items:center;gap:6px}
+  #chatBtn svg{width:18px;height:18px}
+  #chatBtn .badge{margin-left:2px}
   @media (max-width:1200px){
     #app{grid-template-columns:72px 240px minmax(0,1fr)}
     #chat{position:fixed;top:0;right:0;bottom:0;width:min(360px,100%);z-index:10;transform:translateX(100%);transition:transform .2s}
@@ -402,7 +407,7 @@
       </div>
       <div class="r">
         <button class="mob sidebtn" id="sideBtn">Menu</button>
-        <button class="mob chatbtn" id="chatBtn">Chat</button>
+        <button id="chatBtn" title="Mostrar ou ocultar o bate-papo"></button>
       </div>
     </div>
     <main id="grid">
@@ -1390,7 +1395,7 @@ async function guestToSignup() {
   await sb.auth.signOut(); location.reload();
 }
 
-function renderAll() { renderRail(); renderNav(); renderTop(); renderChatHead(); syncParticipants(); updateButtons(); }
+function renderAll() { paintChatBtn(); renderRail(); renderNav(); renderTop(); renderChatHead(); syncParticipants(); updateButtons(); }
 
 // coluna da esquerda: mensagens diretas, servidores, criar e entrar com convite
 function renderRail() {
@@ -1448,6 +1453,7 @@ async function openChat(v) {
   chatView = v;
   unread.delete(v.type + ':' + v.id);
   $('chat').classList.add('open'); $('side').classList.remove('open'); $('rail').classList.remove('open');
+  if (chatHidden) { chatHidden = false; try { localStorage.setItem('xc_chat_hidden', '0'); } catch (e) {} applyChatHidden(); }
   await renderChat();
   renderNav(); renderChatHead();
 }
@@ -1935,8 +1941,8 @@ function subscribeDb() {
       await ensureProfiles([r.user_id]);
       const key = 'ch:' + r.channel_id;
       if (msgCache.has(key)) msgCache.get(key).push(m);
-      if (chatView && chatView.type === 'ch' && chatView.id === r.channel_id) appendMsg(m);
-      else if (r.user_id !== me || r.is_bot) { unread.set(key, (unread.get(key) || 0) + 1); renderNav(); }
+      if (chatView && chatView.type === 'ch' && chatView.id === r.channel_id) { appendMsg(m); if (!chatIsVisible() && r.user_id !== me) { unread.set(key, (unread.get(key) || 0) + 1); paintChatBtn(); } }
+      else if (r.user_id !== me || r.is_bot) { unread.set(key, (unread.get(key) || 0) + 1); renderNav(); paintChatBtn(); }
     })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, ({ old: r }) => {
       msgCache.forEach((list, k) => { if (!k.startsWith('ch:')) return; const i = list.findIndex(x => x.id === r.id); if (i >= 0) list.splice(i, 1); });
@@ -1949,7 +1955,7 @@ function subscribeDb() {
       const m = { id: r.id, uid: r.sender, content: r.content, image_url: r.image_url, created_at: r.created_at, dm: true };
       const key = 'dm:' + other;
       if (msgCache.has(key)) msgCache.get(key).push(m);
-      if (chatView && chatView.type === 'dm' && chatView.id === other) appendMsg(m);
+      if (chatView && chatView.type === 'dm' && chatView.id === other) { appendMsg(m); if (!chatIsVisible() && r.sender !== me) { unread.set(key, (unread.get(key) || 0) + 1); paintChatBtn(); } }
       else if (r.sender !== me) { unread.set(key, (unread.get(key) || 0) + 1); toast('Nova mensagem privada de ' + dn(other)); renderRail(); }
       if (mode === 'dm') renderNav();
     })
@@ -1979,7 +1985,26 @@ function subscribeDb() {
 
 /* ===================== Outros ===================== */
 $('sideBtn').onclick = e => { e.stopPropagation(); const o = !$('side').classList.contains('open'); $('side').classList.toggle('open', o); $('rail').classList.toggle('open', o); };
-$('chatBtn').onclick = () => { $('chat').classList.toggle('open'); if (chatView) unread.delete(chKey()); renderNav(); };
+// ocultar/mostrar o bate-papo (no computador some a coluna; no celular abre por cima)
+const CHAT_ICON = '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+const isOverlayChat = () => getComputedStyle($('chat')).position === 'fixed';
+let chatHidden = false;
+try { chatHidden = localStorage.getItem('xc_chat_hidden') === '1'; } catch (e) {}
+function chatIsVisible() { return isOverlayChat() ? $('chat').classList.contains('open') : !chatHidden; }
+function paintChatBtn() {
+  let n = 0; unread.forEach(v => n += v);
+  const vis = chatIsVisible();
+  $('chatBtn').innerHTML = CHAT_ICON + (vis ? 'Ocultar chat' : 'Mostrar chat') + (!vis && n ? '<span class="badge">' + n + '</span>' : '');
+}
+function applyChatHidden() { $('app').classList.toggle('nochat', chatHidden); paintChatBtn(); setTimeout(layout, 50); }
+$('chatBtn').onclick = () => {
+  if (isOverlayChat()) $('chat').classList.toggle('open');
+  else { chatHidden = !chatHidden; try { localStorage.setItem('xc_chat_hidden', chatHidden ? '1' : '0'); } catch (e) {} applyChatHidden(); }
+  if (chatIsVisible() && chatView) { unread.delete(chKey()); renderNav(); }
+  paintChatBtn();
+};
+applyChatHidden();
+window.addEventListener('resize', paintChatBtn);
 window.addEventListener('beforeunload', () => { try { if (presence) presence.untrack(); if (peer) peer.destroy(); } catch (e) {} });
 </script>
 </body>
