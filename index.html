@@ -670,6 +670,10 @@
   @keyframes toastIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
   #reloadBtn.spin svg{animation:spin .6s linear infinite}
   #reloadBtn:hover svg{transform:rotate(40deg);transition:transform .2s}
+  #reloadBtn{position:relative}
+  #reloadBtn .upd{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--coral);color:#fff;font-size:11px;font-weight:900;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--rail)}
+  #reloadBtn.has-upd{border-color:var(--coral);color:var(--coral);animation:updPulse 1.8s ease-in-out infinite}
+  @keyframes updPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,122,89,.45)}50%{box-shadow:0 0 0 7px rgba(255,122,89,0)}}
 </style>
 </head>
 <body>
@@ -3357,6 +3361,32 @@ $('reloadBtn').onclick = e => {
   $('reloadBtn').classList.add('spin');
   location.reload();
 };
+
+/* ===================== Aviso de versão nova ===================== */
+// de tempos em tempos confere se o site foi atualizado; se sim, mostra um número no botão de recarregar
+let siteVer = null, updCount = 0, lastVer = null;
+async function fetchVer() {
+  try {
+    const r = await fetch('/?ver=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+    return r.headers.get('etag') || r.headers.get('last-modified') || r.headers.get('content-length');
+  } catch (e) { return null; }
+}
+async function checkUpdate() {
+  const v = await fetchVer(); if (!v) return;
+  if (!siteVer) { siteVer = lastVer = v; return; }
+  if (v === lastVer) return;
+  lastVer = v;
+  if (v === siteVer) return;
+  updCount++;
+  const b = $('reloadBtn'); b.classList.add('has-upd');
+  let n = b.querySelector('.upd'); if (!n) { n = el('span', 'upd'); b.appendChild(n); }
+  n.textContent = updCount > 9 ? '9+' : String(updCount);
+  b.title = updCount === 1 ? 'Saiu uma versão nova do Skipper. Clique para atualizar (você volta para onde estava).' : updCount + ' atualizações novas do Skipper. Clique para atualizar.';
+  if (updCount === 1) toast('Saiu uma versão nova do Skipper. Clique no botão de recarregar, lá em cima, para atualizar.');
+}
+checkUpdate();
+setInterval(checkUpdate, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 </script>
 </body>
 </html>
