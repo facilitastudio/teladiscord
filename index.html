@@ -43,7 +43,22 @@
   .brandlogo{text-align:center;font-weight:800;font-size:28px;letter-spacing:-.5px}
   .brandlogo span{color:var(--acc)}
 
-  #app{display:none;height:100%;grid-template-columns:260px minmax(0,1fr) 340px}
+  #app{display:none;height:100%;grid-template-columns:72px 260px minmax(0,1fr) 340px}
+  #rail{background:var(--rail);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:8px;overflow-y:auto;scrollbar-width:none}
+  #rail::-webkit-scrollbar{display:none}
+  .ri{position:relative;width:48px;height:48px;flex-shrink:0}
+  .ri .ic{width:48px;height:48px;border-radius:50%;background:var(--bg);color:var(--soft);display:grid;place-items:center;font-weight:700;font-size:15px;cursor:pointer;transition:border-radius .15s,background .15s,color .15s;overflow:hidden;background-size:cover;background-position:center}
+  .ri .ic svg{width:24px;height:24px}
+  .ri:hover .ic,.ri.on .ic{border-radius:16px;background-color:var(--acc);color:#fff}
+  .ri.green .ic{color:var(--green)}
+  .ri.green:hover .ic{background:var(--green);color:#fff}
+  .ri::before{content:"";position:absolute;left:-12px;top:50%;width:4px;height:0;border-radius:0 4px 4px 0;background:#fff;transform:translateY(-50%);transition:height .15s}
+  .ri:hover::before{height:20px}
+  .ri.on::before{height:40px}
+  .ri.dot::before{height:8px}
+  .ri .badge{position:absolute;right:-4px;bottom:-4px;border:3px solid var(--rail);line-height:14px}
+  .ri[data-tip]:hover::after{content:attr(data-tip);position:fixed;left:80px;margin-top:-36px;background:var(--pop);color:#dbdee1;font-size:14px;font-weight:600;padding:7px 11px;border-radius:5px;white-space:nowrap;pointer-events:none;z-index:50;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .rsep{width:32px;height:2px;background:var(--side);border-radius:1px;flex-shrink:0}
 
   #side{background:var(--side);display:flex;flex-direction:column;min-height:0;position:relative}
   #srvBtn{height:48px;padding:0 16px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;box-shadow:0 1px 0 rgba(0,0,0,.25);flex-shrink:0;background:transparent;border-radius:0;width:100%;text-align:left}
@@ -242,14 +257,16 @@
 
   .mob{display:none}
   @media (max-width:1200px){
-    #app{grid-template-columns:240px minmax(0,1fr)}
+    #app{grid-template-columns:72px 240px minmax(0,1fr)}
     #chat{position:fixed;top:0;right:0;bottom:0;width:min(360px,100%);z-index:10;transform:translateX(100%);transition:transform .2s}
     #chat.open{transform:none}
     #chatClose,.chatbtn{display:inline-block}
   }
   @media (max-width:760px){
     #app{grid-template-columns:minmax(0,1fr)}
-    #side{position:fixed;top:0;left:0;bottom:0;width:min(290px,88%);z-index:10;transform:translateX(-100%);transition:transform .2s}
+    #rail{position:fixed;top:0;left:0;bottom:0;width:72px;z-index:11;transform:translateX(-100%);transition:transform .2s}
+    #rail.open{transform:none}
+    #side{position:fixed;top:0;left:72px;bottom:0;width:min(270px,calc(100% - 72px));z-index:10;transform:translateX(calc(-100% - 72px));transition:transform .2s}
     #side.open{transform:none}
     .sidebtn{display:inline-block}
     .top small{display:none}
@@ -332,6 +349,7 @@
 </div>
 
 <div id="app">
+  <nav id="rail"></nav>
   <aside id="side">
     <button id="srvBtn"><span id="srvName">xcordbr</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
     <div id="srvMenu"></div>
@@ -634,7 +652,7 @@ async function startApp(session) {
 async function loadServers() {
   const { data } = await sb.from('server_members').select('server_id, servers(id,name,owner_id,is_public,invite_code)').eq('user_id', me);
   servers = (data || []).map(r => r.servers).filter(Boolean).sort((a, b) => (b.is_public - a.is_public) || a.name.localeCompare(b.name));
-  renderServerMenu();
+  renderServerMenu(); renderRail();
 }
 const srv = () => servers.find(s => s.id === curServer);
 const ownsServer = () => servers.some(s => s.owner_id === me && !s.is_public);
@@ -1201,7 +1219,35 @@ function renderMe() {
 }
 $('meInfo').onclick = () => editProfile();
 $('reportMini').onclick = e => { e.stopPropagation(); reportDialog(''); };
-function renderAll() { renderNav(); renderTop(); renderChatHead(); syncParticipants(); updateButtons(); }
+function renderAll() { renderRail(); renderNav(); renderTop(); renderChatHead(); syncParticipants(); updateButtons(); }
+
+// coluna da esquerda: mensagens diretas, servidores, criar e entrar com convite
+function renderRail() {
+  const r = $('rail'); if (!r) return;
+  r.innerHTML = '';
+  const item = (tip, on, fill, fn, cls, badge) => {
+    const it = el('div', 'ri' + (on ? ' on' : '') + (cls ? ' ' + cls : '')); it.dataset.tip = tip;
+    const ic = el('div', 'ic'); fill(ic); it.appendChild(ic);
+    if (badge) it.appendChild(el('span', 'badge', String(badge)));
+    it.onclick = e => { e.stopPropagation(); closeMenu(); fn(); };
+    r.appendChild(it); return it;
+  };
+  let dmUnread = 0; unread.forEach((n, k) => { if (k.startsWith('dm:')) dmUnread += n; });
+  dmUnread += friends.filter(f => f.status === 'pending' && f.addressee === me).length;
+  item('Mensagens diretas', mode === 'dm', ic => ic.innerHTML = ICON.friends, () => openDM(null), '', dmUnread);
+  r.appendChild(el('div', 'rsep'));
+  servers.forEach(s => {
+    const on = mode === 'server' && s.id === curServer;
+    item(s.name, on, ic => {
+      ic.textContent = s.is_public ? 'xc' : s.name.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+      if (!on) ic.style.background = s.is_public ? 'var(--bg)' : colorOf(s.id) + '33';
+    }, () => openServer(s.id));
+  });
+  r.appendChild(el('div', 'rsep'));
+  if (!ownsServer()) item('Criar meu servidor', false, ic => ic.innerHTML = ICON.plus, createServerDialog, 'green');
+  item('Entrar com convite', false, ic => ic.innerHTML = ICON.link, joinInviteDialog, 'green');
+  if (isAdmin) item('Painel de administração', false, ic => ic.innerHTML = ICON.shield, adminPanel, 'green');
+}
 
 /* ===================== Chat ===================== */
 const curMusicChannel = () => !!(chatView && chatView.type === 'ch' && (chan(chatView.id) || {}).kind === 'music');
@@ -1232,7 +1278,7 @@ async function fetchMessages(v) {
 async function openChat(v) {
   chatView = v;
   unread.delete(v.type + ':' + v.id);
-  $('chat').classList.add('open'); $('side').classList.remove('open');
+  $('chat').classList.add('open'); $('side').classList.remove('open'); $('rail').classList.remove('open');
   await renderChat();
   renderNav(); renderChatHead();
 }
@@ -1322,7 +1368,7 @@ async function loadFriends() {
   dmPartners = new Set((dms || []).map(r => r.sender === me ? r.receiver : r.sender));
   await ensureProfiles([...friends.map(friendOf), ...dmPartners]);
   if (mode === 'dm') { renderNav(); renderFriends(); }
-  renderServerMenu();
+  renderServerMenu(); renderRail();
 }
 function friendOf(f) { return f.requester === me ? f.addressee : f.requester; }
 const isFriend = uid => friends.some(f => f.status === 'accepted' && friendOf(f) === uid);
@@ -1730,7 +1776,7 @@ function subscribeDb() {
       const key = 'dm:' + other;
       if (msgCache.has(key)) msgCache.get(key).push(m);
       if (chatView && chatView.type === 'dm' && chatView.id === other) appendMsg(m);
-      else if (r.sender !== me) { unread.set(key, (unread.get(key) || 0) + 1); toast('Nova mensagem privada de ' + dn(other)); }
+      else if (r.sender !== me) { unread.set(key, (unread.get(key) || 0) + 1); toast('Nova mensagem privada de ' + dn(other)); renderRail(); }
       if (mode === 'dm') renderNav();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_music' }, ({ eventType, new: n, old: o }) => {
@@ -1758,7 +1804,7 @@ function subscribeDb() {
 }
 
 /* ===================== Outros ===================== */
-$('sideBtn').onclick = e => { e.stopPropagation(); $('side').classList.toggle('open'); };
+$('sideBtn').onclick = e => { e.stopPropagation(); const o = !$('side').classList.contains('open'); $('side').classList.toggle('open', o); $('rail').classList.toggle('open', o); };
 $('chatBtn').onclick = () => { $('chat').classList.toggle('open'); if (chatView) unread.delete(chKey()); renderNav(); };
 window.addEventListener('beforeunload', () => { try { if (presence) presence.untrack(); if (peer) peer.destroy(); } catch (e) {} });
 </script>
