@@ -304,6 +304,18 @@
       <a id="toForgot" style="font-size:13px">Esqueceu a senha?</a>
       <button class="primary big" id="liBtn">Entrar</button>
       <div class="hint">Precisa de uma conta? <a id="toSignup">Cadastre-se</a></div>
+      <div class="msep" style="margin:4px 0"></div>
+      <button class="big" id="toGuest">Entrar como convidado</button>
+    </div>
+
+    <div class="view" data-v="guest">
+      <h1>Entrar como convidado</h1>
+      <div class="sub">Sem conta: você entra no Skipper geral e pode falar, ligar a câmera e transmitir a tela.</div>
+      <div class="hint" style="text-align:center">Convidados não mandam mensagens nem links no chat. Para isso, crie uma conta.</div>
+      <div class="lbl">Seu apelido</div>
+      <input id="gName" maxlength="32" placeholder="Como quer aparecer">
+      <button class="primary big" id="gBtn">Entrar</button>
+      <div class="hint"><a class="toLogin">Voltar</a></div>
     </div>
 
     <div class="view" data-v="signup1">
@@ -445,8 +457,6 @@
 const SUPA_URL = 'https://hmikqhooyshhxxhgzekw.supabase.co';
 const SUPA_KEY = 'sb_publishable_77I79kJhcCPHG5V3MPpmHA_o1EuXmxV';   // chave pública (protegida pelas regras RLS do banco)
 const PUBLIC_ID = '00000000-0000-0000-0000-000000000001';           // servidor Skipper (todo mundo)
-// contas criadas sem email usam um endereço interno no domínio do dono (precisa ser um domínio que recebe email)
-const noEmail = u => 'skipper.' + u + '@jankestudio.com';
 const YT_API_KEY = '';   // opcional: chave da YouTube Data API v3 para !tocar nome
 const BOT = 'Bot de música';
 const KINDS = ['screen', 'cam', 'mic'];
@@ -536,7 +546,7 @@ function statusMenu(ev) {
 }
 
 /* ===================== Perfis ===================== */
-let me = null, myProfile = null, isAdmin = false;
+let me = null, myProfile = null, isAdmin = false, isGuest = false;
 const profiles = new Map();
 const dn = uid => { const p = profiles.get(uid); return p ? (p.display_name || p.username) : 'Usuário'; };
 async function ensureProfiles(ids) {
@@ -591,6 +601,17 @@ function view(v) { document.querySelectorAll('#auth .view').forEach(x => x.class
 const authErr = t => $('authErr').textContent = t;
 $('toSignup').onclick = () => view('signup1');
 $('toForgot').onclick = () => view('forgot');
+$('toGuest').onclick = () => view('guest');
+$('gName').addEventListener('keydown', e => { if (e.key === 'Enter') $('gBtn').click(); });
+$('gBtn').onclick = async () => {
+  const n = $('gName').value.trim().slice(0, 32);
+  if (n.length < 2) return authErr('Escolha um apelido com pelo menos 2 letras.');
+  $('gBtn').disabled = true;
+  const { error } = await sb.auth.signInAnonymously({ options: { data: { display_name: n } } });
+  $('gBtn').disabled = false;
+  if (error) authErr(/anonymous/i.test(error.message) ? 'A entrada de convidados está desligada no momento.' : 'Não consegui entrar: ' + error.message);
+};
+try { if (localStorage.getItem('xc_goto') === 'signup') { localStorage.removeItem('xc_goto'); view('signup1'); } } catch (e) {}
 document.querySelectorAll('.toLogin').forEach(a => a.onclick = () => view('login'));
 document.querySelector('.toSignup1').onclick = () => view('signup1');
 ['liUser', 'liPass'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('liBtn').click(); }));
@@ -632,17 +653,23 @@ $('su1Btn').onclick = async () => {
   pendingSignup = { u, n, p };
   view('signup2');
 };
+// o cadastro é feito pela função "signup" no servidor: conta já confirmada, sem mandar email
 async function doSignup(email) {
   if (!pendingSignup) return view('signup1');
   const { u, n, p } = pendingSignup;
-  const { data, error } = await sb.auth.signUp({ email: email || noEmail(u), password: p, options: { data: { username: u, display_name: n } } });
-  if (error) {
-    if (/registered|already/i.test(error.message)) return authErr('Esse email já está em uso.');
-    if (/rate limit/i.test(error.message)) return authErr('Muitos cadastros agora. Tente em alguns minutos.');
-    if (/invalid/i.test(error.message) && email) return authErr('Esse email parece inválido. Confira ou clique em Avançar sem email.');
-    return authErr('Não consegui criar a conta: ' + error.message);
-  }
-  if (!data.session) return authErr('Conta criada, mas o servidor está pedindo confirmação de email. Avise o administrador.');
+  const btns = [$('suSkip'), $('suWithEmail')]; btns.forEach(b => b.disabled = true);
+  try {
+    const r = await fetch(SUPA_URL + '/functions/v1/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY },
+      body: JSON.stringify({ username: u, display_name: n, password: p, email: email || '' }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) return authErr(j.error || 'Não consegui criar a conta agora. Tente de novo.');
+    const { error } = await sb.auth.signInWithPassword({ email: j.email, password: p });
+    if (error) return authErr('Conta criada! Agora entre com seu usuário e senha.');
+  } catch (e) { authErr('Sem conexão com o servidor. Tente de novo.'); }
+  finally { btns.forEach(b => b.disabled = false); }
 }
 $('suSkip').onclick = () => doSignup('');
 $('suWithEmail').onclick = () => {
@@ -654,7 +681,7 @@ $('fgBtn').onclick = async () => {
   const e = $('fgEmail').value.trim();
   if (!e) return authErr('Digite seu email.');
   const { error } = await sb.auth.resetPasswordForEmail(e, { redirectTo: location.origin + location.pathname });
-  if (error) return authErr('Não consegui enviar agora: ' + error.message);
+  if (error) return authErr(/rate limit/i.test(error.message) ? 'Muitos pedidos de recuperação agora. Tente daqui a 1 hora.' : 'Não consegui enviar agora: ' + error.message);
   toast('Se esse email tiver uma conta, o link chegou na caixa de entrada.'); view('login');
 };
 let recovering = false;
@@ -697,6 +724,7 @@ async function startApp(session) {
   if (started) return;
   started = true;
   me = session.user.id;
+  isGuest = !!session.user.is_anonymous;
   const { data: st } = await sb.rpc('my_status');
   if (st && st.blocked) { started = false; view('banned'); return; }
   isAdmin = !!(st && st.admin);
@@ -710,7 +738,7 @@ async function startApp(session) {
   myProfile = p; profiles.set(me, p);
   $('auth').style.display = 'none';
   $('app').style.display = 'grid';
-  renderMe(); updateButtons();
+  renderMe(); updateButtons(); applyGuest();
   subscribeDb();
   joinOnline(false);
   await bootPeer();
@@ -719,7 +747,7 @@ async function startApp(session) {
   let first = PUBLIC_ID;
   try { const s = localStorage.getItem('xc_server'); if (s && servers.some(x => x.id === s)) first = s; } catch (e) {}
   await openServer(first);
-  if (inviteParam) { history.replaceState(null, '', location.pathname); askJoinInvite(inviteParam); }
+  if (inviteParam) { history.replaceState(null, '', location.pathname); if (isGuest) toast('Convidados não entram em servidores por convite. Crie uma conta.'); else askJoinInvite(inviteParam); }
 }
 
 /* ===================== Servidores ===================== */
@@ -743,6 +771,7 @@ function renderServerMenu() {
   });
   m.appendChild(el('div', 'msep'));
   const add = (icon, text, fn, cls) => { const it = el('div', 'mi' + (cls ? ' ' + cls : '')); it.appendChild(iconEl(icon)); it.append(text); it.onclick = () => { closeMenu(); fn(); }; m.appendChild(it); };
+  if (isGuest) { add('plus', 'Criar uma conta', guestToSignup); const s0 = srv(); if (s0) add('friends', 'Membros de ' + s0.name, membersDialog); return; }
   const nPend = friends.filter(f => f.status === 'pending' && f.addressee === me).length;
   add('friends', 'Amigos e mensagens privadas' + (nPend ? ' (' + nPend + ')' : ''), () => openDM(null));
   if (!ownsServer()) add('plus', 'Criar meu servidor', createServerDialog);
@@ -1311,6 +1340,7 @@ function renderNav() {
 }
 // lista de contatos estilo Skype: amigos com bolinha de status
 function renderContacts(nav) {
+  if (isGuest) { const h = el('div', 'hint', 'Você está como convidado. Crie uma conta para ter contatos, conversar no chat e mandar links.'); h.style.padding = '12px 8px'; nav.appendChild(h); return; }
   const ok = friends.filter(f => f.status === 'accepted').map(friendOf);
   const on = ok.filter(u => statusOf(u) !== 'offline');
   const sec = el('div', 'sec'); sec.appendChild(el('span', null, 'Contatos' + (ok.length ? ' (' + on.length + ' online)' : '')));
@@ -1342,10 +1372,24 @@ function renderMe() {
   const a = avatarEl(me, 32, null, true); a.id = 'meAvatar'; a.title = 'Editar perfil'; a.onclick = e => { e.stopPropagation(); editProfile(); };
   $('meAvatar').replaceWith(a);
   $('meName').textContent = myProfile.display_name || myProfile.username;
-  $('meUser').textContent = STATUS[myStatus][0] + (myProfile.status_text ? ' · ' + myProfile.status_text : ' ▾');
+  $('meUser').textContent = isGuest ? 'Convidado' : STATUS[myStatus][0] + (myProfile.status_text ? ' · ' + myProfile.status_text : ' ▾');
 }
-$('meInfo').onclick = e => { e.stopPropagation(); statusMenu(e); };
+$('meInfo').onclick = e => { e.stopPropagation(); if (isGuest) editProfile(); else statusMenu(e); };
 $('reportMini').onclick = e => { e.stopPropagation(); reportDialog(''); };
+// convidado: sem chat, sem links, sem amigos, sem convites, sem denúncias
+function applyGuest() {
+  if (!isGuest) return;
+  $('chatInput').disabled = true;
+  $('chatInput').placeholder = 'Convidados não podem mandar mensagens. Crie uma conta para conversar.';
+  $('attach').style.display = 'none';
+  $('reportMini').style.display = 'none';
+}
+async function guestToSignup() {
+  if (!confirm('Para criar uma conta você sai do modo convidado. Continuar?')) return;
+  try { localStorage.setItem('xc_goto', 'signup'); } catch (e) {}
+  await sb.auth.signOut(); location.reload();
+}
+
 function renderAll() { renderRail(); renderNav(); renderTop(); renderChatHead(); syncParticipants(); updateButtons(); }
 
 // coluna da esquerda: mensagens diretas, servidores, criar e entrar com convite
@@ -1361,6 +1405,7 @@ function renderRail() {
   };
   let dmUnread = 0; unread.forEach((n, k) => { if (k.startsWith('dm:')) dmUnread += n; });
   dmUnread += friends.filter(f => f.status === 'pending' && f.addressee === me).length;
+  if (isGuest) { item('Criar uma conta', false, ic => ic.innerHTML = ICON.plus, guestToSignup, 'green'); r.appendChild(el('div', 'rsep')); servers.forEach(s => item(s.name, true, ic => paintServerIcon(ic, s, true), () => {})); return; }
   item('Contatos e mensagens diretas', mode === 'dm', ic => { ic.style.background = 'transparent'; ic.innerHTML = '<img src="logo.svg" alt="" style="width:44px;height:44px">'; }, () => openDM(null), '', dmUnread);
   r.appendChild(el('div', 'rsep'));
   servers.forEach(s => {
@@ -1411,7 +1456,7 @@ async function renderChat() {
   renderChatHead();
   if (!chatView) { box.appendChild(el('div', 'sys', mode === 'dm' ? 'Escolha um amigo na lateral para conversar.' : 'Escolha um canal.')); return; }
   const v = chatView;
-  $('chatInput').placeholder = v.type === 'dm' ? 'Conversar com ' + dn(v.id) : curMusicChannel() ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar em ' + ((chan(v.id) || {}).name || '');
+  if (!isGuest) $('chatInput').placeholder = v.type === 'dm' ? 'Conversar com ' + dn(v.id) : curMusicChannel() ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar em ' + ((chan(v.id) || {}).name || '');
   const rows = await fetchMessages(v);
   if (chatView !== v) return;
   box.innerHTML = ''; box.dataset.last = '';
@@ -1468,6 +1513,7 @@ async function sendMessage(text, image_url) {
 }
 $('chatForm').onsubmit = e => {
   e.preventDefault();
+  if (isGuest) return;
   const text = $('chatInput').value.trim();
   if (!text) return;
   $('chatInput').value = '';
@@ -1588,7 +1634,8 @@ async function showCard(uid, ev) {
   await ensureProfiles([uid]);
   const { card, pb } = profileCard(uid);
   const acts = el('div', 'acts');
-  if (uid === me) { const e = el('button', 'primary', 'Editar perfil'); e.onclick = () => { closePop(); editProfile(); }; acts.appendChild(e); }
+  if (isGuest && uid !== me) { /* convidado só vê o cartão */ }
+  else if (uid === me) { const e = el('button', 'primary', 'Editar perfil'); e.onclick = () => { closePop(); editProfile(); }; acts.appendChild(e); }
   else {
     const uname = (profiles.get(uid) || {}).username;
     if (isFriend(uid)) { const m = el('button', 'primary', 'Mensagem'); m.onclick = () => { closePop(); openDM(uid); }; acts.appendChild(m); }
@@ -1708,6 +1755,7 @@ async function adminPanel() {
           const n = el('div', 'n'); n.appendChild(el('b', null, u.display_name || u.username));
           n.appendChild(el('small', null, '@' + u.username + ' · criada em ' + new Date(u.created_at).toLocaleDateString('pt-BR') + (Number(u.reports) ? ' · ' + u.reports + ' denúncia(s)' : '')));
           row.appendChild(n);
+          if (u.username.startsWith('conv_')) row.appendChild(el('span', 'pill ok', 'CONVIDADO'));
           if (u.is_admin) row.appendChild(el('span', 'pill ok', 'ADMIN'));
           else if (u.banned) {
             row.appendChild(el('span', 'pill', 'BANIDO'));
