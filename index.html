@@ -97,6 +97,13 @@
   #chatInput:focus{border-color:var(--acc)}
 
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#22222a;border:1px solid #3a3a46;padding:10px 16px;border-radius:10px;font-size:13px;z-index:30;display:none;max-width:90%}
+  .controls{position:relative}
+  #devPanel{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));background:var(--card);border:1px solid #3a3a46;border-radius:14px;padding:16px;display:none;flex-direction:column;gap:12px;z-index:8;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  #devPanel.open{display:flex}
+  #devPanel label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:6px}
+  #devPanel select{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;outline:none;width:100%}
+  #devPanel select:focus{border-color:var(--acc)}
+  #devPanel p{font-size:12px;color:var(--mut)}
   #sound{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:30;display:none}
 
   .mob{display:none}
@@ -157,6 +164,12 @@
       <button id="micBtn">Microfone</button>
       <button id="camBtn">Câmera</button>
       <button id="screenBtn">Compartilhar tela</button>
+      <button id="devBtn" title="Escolher câmera e microfone">Dispositivos</button>
+      <div id="devPanel">
+        <label>Câmera<select id="camSel"></select></label>
+        <label>Microfone<select id="micSel"></select></label>
+        <p id="devHint"></p>
+      </div>
     </div>
   </section>
 
@@ -470,17 +483,20 @@ async function toggle(kind) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return toast('Este navegador não permite compartilhar a tela. Você ainda pode assistir.');
       s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
     } else if (kind === 'cam') {
-      s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      s = await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false });
     } else {
-      s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+      s = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false });
     }
   } catch (e) {
+    // aparelho salvo não existe mais: tenta de novo com o padrão
+    if (kind !== 'screen' && pref[kind]) { pref[kind] = ''; try { localStorage.removeItem('tela_' + kind); } catch (x) {} return toggle(kind); }
     if (kind !== 'screen') toast('Não consegui acessar ' + (kind === 'cam' ? 'a câmera' : 'o microfone') + '. Verifique a permissão do navegador.');
     return;
   }
   local[kind] = s;
   s.getTracks().forEach(t => t.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); }));
   if (kind !== 'mic') addTile('me:' + kind, s, labelFor(myName + ' (você)', kind), true, kind);
+  if (kind !== 'screen') loadDevices();
   updateButtons(); sendState(); syncMedia(); renderNav();
 }
 
@@ -503,6 +519,65 @@ function updateButtons() {
 $('micBtn').onclick = () => toggle('mic');
 $('camBtn').onclick = () => toggle('cam');
 $('screenBtn').onclick = () => toggle('screen');
+
+/* ================= Escolher câmera e microfone ================= */
+const pref = { cam: '', mic: '' };
+try { pref.cam = localStorage.getItem('tela_cam') || ''; pref.mic = localStorage.getItem('tela_mic') || ''; } catch (e) {}
+const camConstraints = () => Object.assign({ width: { ideal: 1280 }, height: { ideal: 720 } }, pref.cam ? { deviceId: { exact: pref.cam } } : {});
+const micConstraints = () => Object.assign({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, pref.mic ? { deviceId: { exact: pref.mic } } : {});
+
+async function loadDevices() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  const list = await navigator.mediaDevices.enumerateDevices();
+  const fill = (sel, kind, chosen, base) => {
+    const devs = list.filter(d => d.kind === kind && d.deviceId);
+    sel.innerHTML = '';
+    if (!devs.length) { const o = el('option', null, 'Nenhum encontrado'); o.value = ''; sel.appendChild(o); sel.disabled = true; return false; }
+    sel.disabled = false;
+    devs.forEach((d, i) => { const o = el('option', null, d.label || (base + ' ' + (i + 1))); o.value = d.deviceId; sel.appendChild(o); });
+    // mostra o que está em uso agora, ou a preferência salva
+    const active = local[kind === 'videoinput' ? 'cam' : 'mic'];
+    const inUse = active && active.getTracks()[0] && active.getTracks()[0].getSettings().deviceId;
+    sel.value = inUse || chosen || devs[0].deviceId;
+    return devs.some(d => !d.label);
+  };
+  const noLabelCam = fill($('camSel'), 'videoinput', pref.cam, 'Câmera');
+  const noLabelMic = fill($('micSel'), 'audioinput', pref.mic, 'Microfone');
+  $('devHint').textContent = (noLabelCam || noLabelMic)
+    ? 'Para ver o nome dos aparelhos, ligue a câmera ou o microfone uma vez e permita o acesso.'
+    : 'A troca vale na hora, mesmo com a câmera ou o microfone ligados.';
+}
+
+async function switchDevice(kind, deviceId) {
+  pref[kind] = deviceId;
+  try { localStorage.setItem('tela_' + kind, deviceId); } catch (e) {}
+  const old = local[kind];
+  if (!old) return; // desligado: só guarda a escolha para quando ligar
+  let s;
+  try {
+    s = kind === 'cam'
+      ? await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false })
+      : await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false });
+  } catch (e) { toast('Não consegui usar esse aparelho. Ele pode estar em uso por outro programa.'); loadDevices(); return; }
+  const newTrack = s.getTracks()[0];
+  // troca a faixa nas transmissões em andamento, sem derrubar a chamada
+  outCalls.forEach((c, key) => {
+    if (key.split(':')[1] !== kind || !c.peerConnection) return;
+    c.peerConnection.getSenders().forEach(snd => { if (snd.track && snd.track.kind === newTrack.kind) snd.replaceTrack(newTrack).catch(() => {}); });
+  });
+  local[kind] = s;
+  newTrack.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); });
+  old.getTracks().forEach(t => t.stop());
+  if (kind === 'cam') { const t = tiles.get('me:cam'); if (t) t.querySelector('video').srcObject = s; }
+  toast((kind === 'cam' ? 'Câmera' : 'Microfone') + ' trocado.');
+}
+
+$('camSel').onchange = e => switchDevice('cam', e.target.value);
+$('micSel').onchange = e => switchDevice('mic', e.target.value);
+$('devBtn').onclick = e => { e.stopPropagation(); const p = $('devPanel'); p.classList.toggle('open'); if (p.classList.contains('open')) loadDevices(); };
+$('devPanel').onclick = e => e.stopPropagation();
+document.addEventListener('click', () => $('devPanel').classList.remove('open'));
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', () => { if ($('devPanel').classList.contains('open')) loadDevices(); });
 
 /* ================= Vídeos e layout ================= */
 const $grid = $('grid'), $strip = $('strip'), $empty = $('empty');
