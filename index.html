@@ -665,6 +665,9 @@
   html[data-theme="light"] .spick button:hover,html[data-theme="light"] .qrow button:hover{background:#e3eef8;filter:none}
   html[data-theme="light"] .spick button.on,html[data-theme="light"] .qrow button.on{background:linear-gradient(180deg,#e3f4fe,#cdeafc);border-color:var(--acc);color:#035d93;box-shadow:0 4px 14px rgba(0,162,237,.18)}
   html[data-theme="light"] .spick button.on svg{color:var(--acc)}
+  /* avisos no alto da tela, para não tapar a barra de botões */
+  #toast{top:76px;bottom:auto;border-radius:14px;padding:11px 18px;font-weight:600;background:var(--pop);border:1px solid var(--g-brd);box-shadow:0 12px 32px rgba(0,0,0,.35);animation:toastIn .22s cubic-bezier(.2,.9,.3,1.2)}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
 </style>
 </head>
 <body>
