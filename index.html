@@ -42,6 +42,19 @@
   .crow .n b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .crow .n small{display:block;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .smenu{background:var(--pop);border-radius:8px;padding:6px;width:230px}
+  .bdg{display:inline-flex;gap:4px;align-items:center;vertical-align:middle;margin-right:6px}
+  .bdg img{display:block}
+  .pcard .ban{height:110px !important}
+  .pcard .ban.img{height:120px !important}
+  .media-row{display:flex;gap:8px;flex-wrap:wrap}
+  .media-row button{flex:1;min-width:120px}
+  .linkrow{display:none;gap:8px}
+  .linkrow.on{display:flex}
+  .linkrow input{flex:1}
+  .badgebox{display:flex;align-items:center;gap:14px;padding:12px;border-radius:14px;background:linear-gradient(90deg,rgba(244,183,59,.14),rgba(0,162,237,.08));border:1px solid rgba(244,183,59,.35)}
+  .badgebox img{width:72px;height:72px}
+  .badgebox b{display:block;font-size:16px}
+  .badgebox .hint{margin-top:2px}
   .spick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   .spick button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;background:var(--side);border:2px solid transparent;border-radius:10px;font-weight:600}
   .spick button svg{width:34px;height:34px;color:var(--soft)}
@@ -318,14 +331,14 @@
   .tb-brand b{color:var(--acc);font-weight:900}
   #rail{flex:1;min-width:0;display:flex !important;flex-direction:row !important;align-items:center;gap:8px;overflow-x:auto;overflow-y:hidden;padding:0 4px;background:transparent !important;position:static !important;transform:none !important;width:auto !important;height:64px;scrollbar-width:none}
   #rail::-webkit-scrollbar{display:none}
-  .pill{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 6px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--soft);font-weight:700;white-space:nowrap;flex-shrink:0;position:relative}
-  .pill:hover{background:rgba(255,255,255,.08);filter:none}
-  .pill.on{background:linear-gradient(180deg,rgba(47,211,192,.22),rgba(0,162,237,.18));border-color:rgba(47,211,192,.55);color:#fff}
-  .pill .pi{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;color:#fff;background:#1a3b5a;background-size:cover;background-position:center;overflow:hidden}
-  .pill .pi svg{width:16px;height:16px}
-  .pill.act{padding:0 14px;color:var(--teal);border-style:dashed;border-color:rgba(47,211,192,.4)}
-  .pill.act svg{width:16px;height:16px}
-  .pill .badge{position:absolute;top:-4px;right:-4px}
+  .tpill{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 6px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--soft);font-weight:700;white-space:nowrap;flex-shrink:0;position:relative}
+  .tpill:hover{background:rgba(255,255,255,.08);filter:none}
+  .tpill.on{background:linear-gradient(180deg,rgba(47,211,192,.22),rgba(0,162,237,.18));border-color:rgba(47,211,192,.55);color:#fff}
+  .tpill .pi{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;color:#fff;background:#1a3b5a;background-size:cover;background-position:center;overflow:hidden}
+  .tpill .pi svg{width:16px;height:16px}
+  .tpill.act{padding:0 14px;color:var(--teal);border-style:dashed;border-color:rgba(47,211,192,.4)}
+  .tpill.act svg{width:16px;height:16px}
+  .tpill .badge{position:absolute;top:-4px;right:-4px}
   .tb-sep{width:1px;height:26px;background:#1d3a57;flex-shrink:0}
   .tb-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
   #topbar .me{background:transparent;padding:4px 4px 4px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.07);gap:10px}
@@ -710,6 +723,16 @@ function statusMenu(ev) {
   pop.style.left = (r.left + 8) + 'px'; pop.style.top = Math.max(8, r.top - pop.offsetHeight - 8) + 'px';
 }
 
+/* ===================== Imagens seguras e insígnias ===================== */
+const STORAGE_PUBLIC = SUPA_URL + '/storage/v1/object/public/';
+const safeImg = u => (typeof u === 'string' && (u.startsWith('data:image/') || u.startsWith(STORAGE_PUBLIC))) ? u : '';
+const BADGES = { skipper1: { img: 'badges/skipper1.gif', name: 'Skipper #1', desc: 'Pioneiro: conta criada em 2026' } };
+function badgeImgs(p, size) {
+  const wrap = el('span', 'bdg');
+  (p && p.badges || []).forEach(k => { const b = BADGES[k]; if (!b) return; const i = el('img'); i.src = b.img; i.alt = b.name; i.title = b.name + ' · ' + b.desc; i.style.width = i.style.height = size + 'px'; wrap.appendChild(i); });
+  return wrap;
+}
+
 /* ===================== Perfis ===================== */
 let me = null, myProfile = null, isAdmin = false, isGuest = false;
 const profiles = new Map();
@@ -717,7 +740,7 @@ const dn = uid => { const p = profiles.get(uid); return p ? (p.display_name || p
 async function ensureProfiles(ids) {
   const miss = [...new Set(ids)].filter(id => id && !profiles.has(id));
   if (!miss.length) return;
-  const { data } = await sb.from('profiles').select('id,username,display_name,bio,avatar,banner_color,status_text').in('id', miss);
+  const { data } = await sb.from('profiles').select('id,username,display_name,bio,avatar,banner_color,status_text,banner,badges,created_at').in('id', miss);
   (data || []).forEach(p => profiles.set(p.id, p));
 }
 function avatarEl(uid, size, speak, dot) {
@@ -726,7 +749,7 @@ function avatarEl(uid, size, speak, dot) {
   if (size) { a.style.width = a.style.height = size + 'px'; a.style.fontSize = Math.round(size * 0.42) + 'px'; }
   if (uid === 'bot') { a.style.background = 'linear-gradient(180deg,#2cc0ff,#0086da)'; a.textContent = '♪'; return a; }
   const p = profiles.get(uid);
-  if (p && p.avatar) a.style.backgroundImage = 'url("' + p.avatar + '")';
+  if (p && safeImg(p.avatar)) a.style.backgroundImage = 'url("' + safeImg(p.avatar) + '")';
   else { const n = p ? (p.display_name || p.username) : '?'; a.style.background = colorOf(p ? p.username : uid); a.textContent = (n[0] || '?').toUpperCase(); }
   if (dot && uid) { const d = el('span'); d.dataset.sdot = uid; paintDot(d, uid); a.appendChild(d); }
   if (uid) a.onclick = e => { e.stopPropagation(); showCard(uid, e); };
@@ -1632,14 +1655,14 @@ function renderRail() {
   const r = $('rail'); if (!r) return;
   r.innerHTML = '';
   const pill = (label, on, fillIcon, fn, cls, badge) => {
-    const b = el('button', 'pill' + (on ? ' on' : '') + (cls ? ' ' + cls : ''));
+    const b = el('button', 'tpill' + (on ? ' on' : '') + (cls ? ' ' + cls : ''));
     if (fillIcon) { const pi = el('span', 'pi'); fillIcon(pi); b.appendChild(pi); }
     b.append(label);
     if (badge) b.appendChild(el('span', 'badge', String(badge)));
     b.onclick = e => { e.stopPropagation(); closeMenu(); fn(); };
     r.appendChild(b); return b;
   };
-  const actBtn = (label, icon, fn) => { const b = el('button', 'pill act'); b.appendChild(iconEl(icon)); b.append(label); b.onclick = e => { e.stopPropagation(); fn(); }; r.appendChild(b); };
+  const actBtn = (label, icon, fn) => { const b = el('button', 'tpill act'); b.appendChild(iconEl(icon)); b.append(label); b.onclick = e => { e.stopPropagation(); fn(); }; r.appendChild(b); };
   if (isGuest) {
     servers.forEach(s => pill(s.name, true, pi => paintServerIcon(pi, s, true), () => {}));
     r.appendChild(el('span', 'tb-sep'));
@@ -1720,11 +1743,12 @@ function appendMsg(m) {
   const nb = el('b', null, m.is_bot ? BOT : dn(m.uid));
   if (!m.is_bot && m.uid) nb.onclick = e => { e.stopPropagation(); showCard(m.uid, e); };
   h.appendChild(nb);
+  if (!m.is_bot) { const pp = profiles.get(m.uid); if (pp && pp.badges && pp.badges.length) h.appendChild(badgeImgs(pp, 16)); }
   if (m.is_bot) h.appendChild(el('span', 'botag', 'BOT'));
   h.append(fmtTime(ts));
   c.appendChild(h);
   if (m.content) c.appendChild(el('div', 'b', m.content));
-  if (m.image_url) {
+  if (safeImg(m.image_url)) {
     const im = el('img', 'mimg'); im.src = m.image_url; im.alt = 'Imagem enviada';
     im.onload = () => { if (atBottom) box.scrollTop = box.scrollHeight; };
     im.onclick = () => { $('lightbox').querySelector('img').src = m.image_url; $('lightbox').classList.add('open'); };
@@ -1858,11 +1882,14 @@ function renderFriends() {
 function profileCard(uid) {
   const p = profiles.get(uid) || {};
   const card = el('div', 'pcard');
-  const ban = el('div', 'ban'); ban.style.background = p.banner_color || '#5b67f1'; card.appendChild(ban);
+  const ban = el('div', 'ban'); ban.style.backgroundColor = p.banner_color || '#00a2ed';
+  if (safeImg(p.banner)) { ban.style.backgroundImage = 'url("' + safeImg(p.banner) + '")'; ban.style.backgroundSize = 'cover'; ban.style.backgroundPosition = 'center'; ban.classList.add('img'); }
+  card.appendChild(ban);
   const pav = el('div', 'pav'); const a = avatarEl(uid, 80, null, true); a.onclick = null; a.style.cursor = 'default'; pav.appendChild(a); card.appendChild(pav);
   const pb = el('div', 'pb');
   pb.appendChild(el('b', null, p.display_name || p.username || 'Usuário'));
   pb.appendChild(el('div', 'u', '@' + (p.username || '')));
+  if (p.badges && p.badges.length) pb.appendChild(badgeImgs(p, 44));
   const st = statusOf(uid); const sl = el('div', 'hint', STATUS[st][0] + (p.status_text ? ' · ' + p.status_text : '')); pb.appendChild(sl);
   if (p.bio) pb.appendChild(el('div', 'bio', p.bio));
   card.appendChild(pb);
@@ -1893,26 +1920,118 @@ async function showCard(uid, ev) {
   const x = Math.min((ev && ev.clientX) || innerWidth / 2, innerWidth - 316), y = Math.min((ev && ev.clientY) || innerHeight / 3, innerHeight - pop.offsetHeight - 16);
   pop.style.left = Math.max(8, x) + 'px'; pop.style.top = Math.max(8, y) + 'px';
 }
+// envia foto/fundo: GIF fica animado (até 4 MB); outras imagens são reduzidas
+async function uploadProfileFile(file, kind) {
+  let blob = file, type = file.type, ext = 'jpg';
+  if (file.type === 'image/gif') {
+    if (file.size > 4 * 1024 * 1024) throw new Error('GIF maior que 4 MB.');
+    ext = 'gif';
+  } else {
+    const img = await loadImg(file);
+    const c = document.createElement('canvas');
+    if (kind === 'avatar') { const sz = Math.min(img.width, img.height); c.width = c.height = 256; c.getContext('2d').drawImage(img, (img.width - sz) / 2, (img.height - sz) / 2, sz, sz, 0, 0, 256, 256); }
+    else { const k = Math.min(1, 1200 / img.width); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); }
+    blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.86)); type = 'image/jpeg';
+  }
+  const path = me + '/' + kind + '-' + rnd() + '.' + ext;
+  const { error } = await sb.storage.from('profile-media').upload(path, blob, { contentType: type });
+  if (error) throw error;
+  return sb.storage.from('profile-media').getPublicUrl(path).data.publicUrl;
+}
+// baixa um GIF de um link da internet e guarda uma cópia no Skipper
+async function importFromLink(url, kind) {
+  const { data } = await sb.auth.getSession();
+  const r = await fetch(SUPA_URL + '/functions/v1/import-gif', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY, Authorization: 'Bearer ' + (data.session ? data.session.access_token : '') },
+    body: JSON.stringify({ url, kind }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || 'Não consegui usar esse link.');
+  return j.url;
+}
+
 function editProfile() {
   const p = myProfile;
-  let avatar = p.avatar;
-  const preview = el('div');
+  let avatar = p.avatar, banner = p.banner || '';
+  const preview = el('div'); preview.style.cssText = 'display:flex;justify-content:center';
   const name = el('input'); name.value = p.display_name; name.maxLength = 32;
   const stt = el('input'); stt.value = p.status_text || ''; stt.maxLength = 80; stt.placeholder = 'Ex.: estudando para a prova';
   const bio = el('textarea'); bio.value = p.bio; bio.maxLength = 190; bio.placeholder = 'Fale um pouco sobre você';
-  const color = el('input'); color.type = 'color'; color.value = p.banner_color || '#5b67f1'; color.style.cssText = 'height:44px;padding:4px;cursor:pointer';
-  const draw = () => { profiles.set(me, Object.assign({}, p, { display_name: name.value, bio: bio.value, banner_color: color.value, avatar })); preview.innerHTML = ''; preview.appendChild(profileCard(me).card); profiles.set(me, p); };
-  [name, bio, color].forEach(i => i.oninput = draw);
-  const pick = el('button', null, 'Trocar foto'); pick.onclick = () => $('avatarFile').click();
-  const rm = el('button', null, 'Remover foto'); rm.onclick = () => { avatar = ''; draw(); };
-  $('avatarFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { avatar = await squareDataUrl(f, 160); draw(); } catch (x) { toast('Não consegui abrir essa imagem.'); } };
-  const photoRow = el('div', 'copyrow'); photoRow.append(pick, rm);
+  const color = el('input'); color.type = 'color'; color.value = p.banner_color || '#00a2ed'; color.style.cssText = 'height:44px;padding:4px;cursor:pointer';
+  const draw = () => { profiles.set(me, Object.assign({}, p, { display_name: name.value, bio: bio.value, banner_color: color.value, avatar, banner, status_text: stt.value })); preview.innerHTML = ''; preview.appendChild(profileCard(me).card); profiles.set(me, p); };
+  [name, bio, color, stt].forEach(i => i.oninput = draw);
+
+  // bloco de mídia (foto ou fundo): arquivo, link da internet ou remover
+  const mediaBlock = (kind) => {
+    const file = el('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
+    const up = el('button', null, kind === 'avatar' ? 'Enviar foto ou GIF' : 'Enviar imagem ou GIF');
+    const ln = el('button', null, 'Usar link da internet');
+    const rm = el('button', null, 'Remover');
+    const row = el('div', 'media-row'); row.append(up, ln, rm, file);
+    const lrow = el('div', 'linkrow');
+    const inp = el('input'); inp.placeholder = 'Cole o link do GIF (GIPHY, Tenor, ou "Copiar endereço da imagem")';
+    const go = el('button', 'primary', 'Usar');
+    lrow.append(inp, go);
+    const set = v => { if (kind === 'avatar') avatar = v; else banner = v; draw(); };
+    up.onclick = () => file.click();
+    file.onchange = async () => {
+      const f = file.files[0]; file.value = ''; if (!f) return;
+      up.disabled = true; toast('Enviando...');
+      try { set(await uploadProfileFile(f, kind)); toast('Pronto! Clique em Salvar.'); } catch (e) { toast(e.message || 'Não consegui enviar.'); }
+      up.disabled = false;
+    };
+    ln.onclick = () => { lrow.classList.toggle('on'); inp.focus(); };
+    go.onclick = async () => {
+      const u = inp.value.trim(); if (!u) return;
+      go.disabled = true; toast('Baixando o GIF...');
+      try { set(await importFromLink(u, kind)); inp.value = ''; lrow.classList.remove('on'); toast('Pronto! Clique em Salvar.'); } catch (e) { toast(e.message); }
+      go.disabled = false;
+    };
+    inp.onkeydown = e => { if (e.key === 'Enter') go.click(); };
+    rm.onclick = () => set('');
+    const box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:8px'; box.append(row, lrow);
+    return box;
+  };
+
+  // insígnias
+  const badgeArea = el('div');
+  const drawBadges = () => {
+    badgeArea.innerHTML = '';
+    const b = BADGES.skipper1, has = (p.badges || []).includes('skipper1');
+    const created = new Date(p.created_at || Date.now());
+    const eligible = created.getFullYear() === 2026;
+    const box = el('div', 'badgebox');
+    const im = el('img'); im.src = b.img; im.alt = b.name; box.appendChild(im);
+    const t = el('div'); t.appendChild(el('b', null, b.name)); t.appendChild(el('div', 'hint', b.desc)); box.appendChild(t);
+    if (has) { const ok = el('span', 'pill ok', 'NO SEU PERFIL'); ok.style.marginLeft = 'auto'; box.appendChild(ok); }
+    else if (eligible) {
+      const c = el('button', 'primary', 'Resgatar'); c.style.marginLeft = 'auto';
+      c.onclick = async () => {
+        c.disabled = true;
+        const { data, error } = await sb.rpc('claim_badge', { p_badge: 'skipper1' });
+        if (error || (data !== 'ok' && data !== 'ja_tem')) { c.disabled = false; return toast('Não deu para resgatar agora.'); }
+        p.badges = [...(p.badges || []), 'skipper1']; profiles.set(me, p);
+        toast('Insígnia Skipper #1 resgatada!'); drawBadges(); draw(); renderChat();
+      };
+      box.appendChild(c);
+    } else box.appendChild(el('div', 'hint', 'Só para contas criadas em 2026.'));
+    badgeArea.appendChild(box);
+  };
+  drawBadges();
+
   const out = el('button', 'danger', 'Sair da conta'); out.onclick = async () => { await sb.auth.signOut(); location.reload(); };
   draw();
-  openModal('Meu perfil', [preview, el('div', 'hint', 'Usuário: @' + p.username + ' (não dá para trocar)'), el('div', 'lbl', 'Foto'), photoRow, el('div', 'lbl', 'Nome de exibição'), name, el('div', 'lbl', 'Mensagem de status'), stt, el('div', 'lbl', 'Sobre mim'), bio, el('div', 'lbl', 'Cor do banner'), color, out], [
+  const items = [preview, el('div', 'hint', 'Usuário: @' + p.username + ' (não dá para trocar)'),
+    el('div', 'lbl', 'Foto de perfil'), mediaBlock('avatar'),
+    el('div', 'lbl', 'Fundo do perfil'), mediaBlock('banner'), el('div', 'hint', 'Cor usada quando não tem imagem de fundo:'), color,
+    el('div', 'lbl', 'Nome de exibição'), name, el('div', 'lbl', 'Mensagem de status'), stt, el('div', 'lbl', 'Sobre mim'), bio];
+  if (!isGuest) items.push(el('div', 'lbl', 'Insígnias'), badgeArea);
+  items.push(out);
+  openModal('Meu perfil', items, [
     ['Cancelar', closeModal],
     ['Salvar', async () => {
-      const upd = { display_name: name.value.trim(), bio: bio.value.trim(), banner_color: color.value, avatar, status_text: stt.value.trim() };
+      const upd = { display_name: name.value.trim(), bio: bio.value.trim(), banner_color: color.value, avatar, banner, status_text: stt.value.trim() };
       const { error } = await sb.from('profiles').update(upd).eq('id', me);
       if (error) return toast('Não consegui salvar: ' + error.message);
       Object.assign(myProfile, upd); profiles.set(me, myProfile);
