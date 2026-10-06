@@ -1409,7 +1409,7 @@ function dropPresence(sid) {
   onPresence();
 }
 async function trackOne(sid, entry) {
-  try { await entry.ch.track({ uid: me, peer: peerId, room: sid === voiceServer ? myRoom : null, seq: mySeq, screen: !!local.screen, cam: !!local.cam, mic: !!local.mic, deaf }); } catch (e) {}
+  try { await entry.ch.track({ uid: me, peer: peerId, room: sid === voiceServer ? myRoom : null, seq: mySeq, screen: !!local.screen, cam: !!local.cam, mic: !!local.mic, deaf, relay: needRelay && sid === voiceServer, nolk: lkBroken && sid === voiceServer }); } catch (e) {}
 }
 async function trackMe() { for (const [sid, e] of pres) await trackOne(sid, e); }
 // junta quem está em cada sala de todos os servidores abertos (salas têm ids únicos)
@@ -1418,7 +1418,7 @@ async function onPresence() {
   pres.forEach(({ ch }) => {
     Object.values(ch.presenceState()).forEach(arr => {
       const m = arr[arr.length - 1]; if (!m || !m.peer) return;
-      if (!next.has(m.peer) || m.room) next.set(m.peer, { id: m.peer, uid: m.uid, room: m.room, seq: m.seq, screen: m.screen, cam: m.cam, mic: m.mic, deaf: !!m.deaf });
+      if (!next.has(m.peer) || m.room) next.set(m.peer, { id: m.peer, uid: m.uid, room: m.room, seq: m.seq, screen: m.screen, cam: m.cam, mic: m.mic, deaf: !!m.deaf, relay: !!m.relay, nolk: !!m.nolk });
     });
   });
   members = next;
@@ -1458,16 +1458,18 @@ function bootPeer() {
     p.on('disconnected', () => { try { p.reconnect(); } catch (e) {} });
     p.on('error', e => { if (e.type === 'peer-unavailable') return; if (!done) { done = true; res(); } });
     setTimeout(() => { if (!done) { done = true; res(); } }, 8000);
-  });
+  }).then(() => { if (!peerId) peerId = 'x' + rnd() + rnd(); });
 }
 const roomPeers = () => [...members.values()].filter(m => m.room && m.room === myRoom && m.id !== peerId);
 const labelFor = (uid, k) => k === 'screen' ? dn(uid) + ' · tela' : dn(uid);
 function syncMedia() {
-  if (!peer) return;
+  const mode = roomMode();
+  if (mode === 'lk') { closeP2P(); lkSync(); }
+  else { if (lk) lkLeave(); if (!peer) { if (myRoom && roomPeers().length && !lkBroken && !needRelay) setRelay(); return; } }
   const peers = roomPeers();
   const pm = new Map(peers.map(m => [m.id, m]));
   const want = new Set();
-  peers.forEach(m => KINDS.forEach(k => {
+  if (mode === 'p2p') peers.forEach(m => KINDS.forEach(k => {
     if (!local[k]) return;
     const key = m.id + ':' + k + ':' + m.seq;
     want.add(key);
@@ -1479,7 +1481,7 @@ function syncMedia() {
     c.on('error', () => {});
   }));
   outCalls.forEach((c, key) => { if (!want.has(key)) { try { c.close(); } catch (e) {} outCalls.delete(key); } });
-  inCalls.forEach((c, key) => { const [id, k] = key.split(':'); const m = pm.get(id); if (!m || !m[k]) { inCalls.delete(key); try { c.close(); } catch (e) {} dropRemote(id, k); } });
+  if (mode === 'p2p') inCalls.forEach((c, key) => { const [id, k] = key.split(':'); const m = pm.get(id); if (!m || !m[k]) { inCalls.delete(key); try { c.close(); } catch (e) {} dropRemote(id, k); } });
   tiles.forEach((t, key) => {
     if (key.startsWith('me:') || key.startsWith('p:')) return;
     const [id, k] = key.split(':'); const m = pm.get(id);
@@ -1488,6 +1490,7 @@ function syncMedia() {
   audios.forEach((a, id) => { const m = pm.get(id); if (!m || !m.mic) dropRemote(id, 'mic'); });
 }
 function leaveRoomMedia() {
+  lkLeave(); needRelay = false; lkBroken = false; expectSince.clear();
   outCalls.forEach(c => { try { c.close(); } catch (e) {} }); outCalls.clear();
   inCalls.forEach(c => { try { c.close(); } catch (e) {} }); inCalls.clear();
   [...tiles.keys()].forEach(k => { if (!k.startsWith('me:')) removeTile(k); });
@@ -1496,6 +1499,8 @@ function leaveRoomMedia() {
 }
 function onCall(call) {
   if (call.metadata && call.metadata.dm) return onDmMedia(call);
+  // sala usando o servidor: não aceita conexão direta
+  if (roomMode() === 'lk') { try { call.close(); } catch (e) {} return; }
   const k = (call.metadata && call.metadata.kind) || 'screen';
   const key = call.peer + ':' + k;
   const old = inCalls.get(key);
@@ -1743,6 +1748,7 @@ async function reopen(kind, msg) {
   old.getTracks().forEach(t => t.stop()); closeProc(oldProc);
   if (kind === 'cam') { const t = tiles.get('me:cam'); if (t) t.querySelector('video').srcObject = s; }
   if (kind === 'mic') { unwatchVoice(peerId); watchVoice(peerId, s); }
+  if (lk) lkSync();
   toast(msg);
 }
 $('camSel').onchange = e => switchDevice('cam', e.target.value);
@@ -1864,7 +1870,7 @@ function memberLine(m) {
 function renderNav() {
   const nav = $('nav'); nav.innerHTML = '';
   $('voice').classList.toggle('on', !!myRoom);
-  if (myRoom) $('voiceRoom').textContent = ((chan(myRoom) || {}).name || '') + ' / ' + ((servers.find(x => x.id === voiceServer) || {}).name || '');
+  if (myRoom) $('voiceRoom').textContent = ((chan(myRoom) || {}).name || '') + ' / ' + ((servers.find(x => x.id === voiceServer) || {}).name || '') + (lk && lk.room ? ' · via servidor' : '');
   if (mode === 'dm') return renderDmNav(nav);
   const s = srv();
   $('srvName').textContent = s ? s.name : 'Skipper';
@@ -2914,11 +2920,49 @@ async function acceptCall() {
   sb.auth.getSession().then(({ data }) => { if (data.session) c.tok = data.session.access_token; });
   const { error } = await sb.from('dm_calls').update({ status: 'active', callee_peer: peerId }).eq('id', c.id).eq('status', 'ringing');
   if (error) { toast('Essa ligação já terminou.'); return cleanupCall(); }
-  drawCall(); sendCallMedia();
+  drawCall(); sendCallMedia(); dmWatch(c);
+}
+// se a conexão direta não fechar em alguns segundos, a ligação passa pelo servidor
+function dmWatch(c) {
+  setTimeout(() => { if (dmCall === c && c.status === 'active' && !c.connected && !c.lk) dmRelay(c, true); }, 9000);
+}
+async function dmRelay(c, announce) {
+  if (c.lk) return;
+  const me0 = c.lk = { room: null, pubs: new Map() };
+  if (announce) sb.from('dm_calls').update({ relay: true }).eq('id', c.id).then(() => {});
+  (c.out || new Map()).forEach(x => { try { x.close(); } catch (e) {} }); c.out = new Map();
+  (c.in || new Map()).forEach(x => { try { x.close(); } catch (e) {} }); c.in = new Map();
+  const sub = $('callSub'); if (sub && !c.connected) sub.textContent = 'Conectando pelo servidor...';
+  try {
+    me0.room = await lkOpen('dm', c.id, {
+      track: (track, k) => {
+        if (dmCall !== c || c.lk !== me0) return;
+        if (k === 'mic') {
+          if (!c.audio) { c.audio = document.createElement('audio'); c.audio.autoplay = true; document.body.appendChild(c.audio); }
+          c.audio.srcObject = new MediaStream([track.mediaStreamTrack]); c.audio.muted = deaf; c.audio.play().catch(() => { $('sound').style.display = 'block'; });
+          if (!c.connected) { c.connected = true; c.t0 = Date.now(); stopRing(); }
+        } else if (k === 'cam' || k === 'screen') { c.remoteVideo = new MediaStream([track.mediaStreamTrack]); c.remoteKind = k; }
+        drawCall();
+      },
+      untrack: (track, k) => {
+        if (dmCall !== c || c.lk !== me0) return;
+        if ((k === 'cam' || k === 'screen') && c.remoteKind === k) { c.remoteVideo = null; drawCall(); }
+      },
+      gone: () => { if (dmCall === c && c.lk === me0) { toast('A ligação caiu.'); endCall('ended'); } },
+    });
+  } catch (e) {
+    if (dmCall === c) { toast('Não consegui conectar a ligação.'); endCall('ended'); }
+    return;
+  }
+  if (dmCall !== c) { try { me0.room.disconnect(); } catch (e) {} return; }
+  await lkPublish(me0.room, me0.pubs, { mic: c.mic, cam: c.cam, screen: c.screen });
+  setTimeout(() => { if (dmCall === c && !c.connected) { toast('Não consegui conectar a ligação.'); endCall('ended'); } }, 20000);
 }
 // manda meu microfone (e câmera/tela, se ligados) para o outro lado
 function sendCallMedia() {
-  const c = dmCall; if (!c || c.status !== 'active' || !c.otherPeer || !peer) return;
+  const c = dmCall; if (!c || c.status !== 'active') return;
+  if (c.lk) { if (c.lk.room) lkPublish(c.lk.room, c.lk.pubs, { mic: c.mic, cam: c.cam, screen: c.screen }); return; }
+  if (!c.otherPeer || !peer) return;
   ['mic', 'cam', 'screen'].forEach(k => {
     const s = c[k]; const cur = c.out.get(k);
     if (!s) { if (cur) { try { cur.close(); } catch (e) {} c.out.delete(k); } return; }
@@ -2933,9 +2977,10 @@ function onDmMedia(call) {
   const c = dmCall, md = call.metadata || {};
   // quem ligou pode receber o áudio de quem atendeu antes do aviso do banco chegar
   if (c && c.role === 'caller' && c.status === 'ringing' && c.id && md.dm === c.id) {
-    clearTimeout(c.timer); stopRing(); c.status = 'active'; c.otherPeer = call.peer; drawCall(); setTimeout(sendCallMedia, 0);
+    clearTimeout(c.timer); stopRing(); c.status = 'active'; c.otherPeer = call.peer; drawCall(); setTimeout(sendCallMedia, 0); dmWatch(c);
   }
   // só aceita mídia da ligação atual e do aparelho certo
+  if (c && c.lk) { try { call.close(); } catch (e) {} return; }
   if (!c || c.status !== 'active' || md.dm !== c.id || call.peer !== c.otherPeer || !['mic', 'cam', 'screen'].includes(md.kind)) { try { call.close(); } catch (e) {} return; }
   c.in = c.in || new Map();
   const old = c.in.get(md.kind); if (old && old !== call) { try { old.close(); } catch (e) {} }
@@ -2988,6 +3033,8 @@ function cleanupCall() {
     (c.out || new Map()).forEach(x => { try { x.close(); } catch (e) {} });
     (c.in || new Map()).forEach(x => { try { x.close(); } catch (e) {} });
     if (c.audio) { c.audio.srcObject = null; c.audio.remove(); }
+    if (c.lk && c.lk.room) { try { c.lk.room.disconnect(); } catch (e) {} }
+    c.lk = null;
   }
   drawCall();
 }
@@ -3015,12 +3062,12 @@ async function onCallRow(r) {
     return;
   }
   const c = dmCall; if (!c || c.id !== r.id) return;
+  if (r.relay && r.status === 'active' && c.status === 'active' && !c.lk) dmRelay(c, false);
   if (r.status === 'active' && c.role === 'caller' && c.status === 'active' && r.callee_peer && c.otherPeer !== r.callee_peer) {
     toast('Não consegui conectar a ligação.'); endCall('ended');
   } else if (r.status === 'active' && c.role === 'caller' && c.status === 'ringing' && r.callee_peer) {
     clearTimeout(c.timer); stopRing();
-    c.status = 'active'; c.otherPeer = r.callee_peer; drawCall(); sendCallMedia();
-    setTimeout(() => { if (dmCall === c && !c.connected) { toast('Não consegui conectar a ligação.'); endCall('ended'); } }, 20000);
+    c.status = 'active'; c.otherPeer = r.callee_peer; drawCall(); sendCallMedia(); dmWatch(c);
   } else if (r.status === 'active' && c.role === 'callee' && c.status === 'ringing') {
     cleanupCall(); // atendida em outra aba ou aparelho
   } else if (['ended', 'declined', 'missed'].includes(r.status)) {
@@ -3085,6 +3132,153 @@ function askDialog({ title, text, ok = 'Confirmar', cancel = 'Cancelar', danger 
     setTimeout(() => (inp || yes).focus(), 30);
   });
 }
+
+/* ===================== LiveKit: servidor de mídia (modo misto) ===================== */
+// Normal: tudo direto entre navegadores (grátis). A sala passa para o servidor do LiveKit quando
+// tem 5 ou mais pessoas ou quando a conexão direta de alguém falha. Se o LiveKit não funcionar
+// (limite do plano grátis, erro), volta para o direto.
+const RELAY_MIN = 5;
+let needRelay = false, lkBroken = false, lk = null, lkBusy = false, lkAgain = false;
+const expectSince = new Map();
+const lkRemote = new Map(); // "peer:screen" -> MediaStream (vídeo + som da tela)
+function roomMode() {
+  if (!myRoom) return 'p2p';
+  const ms = [...members.values()].filter(m => m.room === myRoom);
+  if (lkBroken || ms.some(m => m.nolk)) return 'p2p';
+  return (needRelay || ms.length >= RELAY_MIN || ms.some(m => m.relay)) ? 'lk' : 'p2p';
+}
+function setRelay() {
+  if (needRelay || lkBroken || !myRoom) return;
+  needRelay = true; trackMe(); syncMedia(); renderAll();
+}
+function closeP2P() {
+  outCalls.forEach(c => { try { c.close(); } catch (e) {} }); outCalls.clear();
+  inCalls.forEach((c, key) => { inCalls.delete(key); try { c.close(); } catch (e) {} });
+}
+let lkLib = null;
+function lkLoad() {
+  if (window.LivekitClient) return Promise.resolve(window.LivekitClient);
+  if (!lkLib) lkLib = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'vendor/livekit/livekit-client.umd.js'; sc.onload = () => res(window.LivekitClient); sc.onerror = () => { lkLib = null; rej(new Error('Não consegui carregar o LiveKit.')); }; document.head.appendChild(sc); });
+  return lkLib;
+}
+async function lkToken(kind, id) {
+  const { data } = await sb.auth.getSession();
+  const r = await fetch(SUPA_URL + '/functions/v1/livekit-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY, Authorization: 'Bearer ' + (data.session ? data.session.access_token : '') },
+    body: JSON.stringify({ kind, id, peer: peerId }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.token) { const e = new Error(j.error || 'Servidor indisponível.'); e.status = r.status; throw e; }
+  return j;
+}
+const lkKind = (L, src) => ({ [L.Track.Source.Microphone]: 'mic', [L.Track.Source.Camera]: 'cam', [L.Track.Source.ScreenShare]: 'screen', [L.Track.Source.ScreenShareAudio]: 'screenaudio' })[src] || null;
+const lkWho = p => { const [uid, pid] = String(p.identity || '').split('|'); return { uid, pid }; };
+async function lkOpen(kind, id, h) {
+  const L = await lkLoad();
+  const t = await lkToken(kind, id);
+  const room = new L.Room({ adaptiveStream: false, dynacast: true, disconnectOnPageLeave: true });
+  room.on(L.RoomEvent.TrackSubscribed, (track, pub, p) => h.track(track, lkKind(L, track.source), lkWho(p)));
+  room.on(L.RoomEvent.TrackUnsubscribed, (track, pub, p) => h.untrack(track, lkKind(L, track.source), lkWho(p)));
+  room.on(L.RoomEvent.Disconnected, () => h.gone(room));
+  await room.connect(t.url, t.token, { autoSubscribe: true });
+  return room;
+}
+// publica/retira minhas faixas para bater com o que está ligado
+async function lkPublish(room, pubs, want) {
+  const L = window.LivekitClient;
+  for (const k of ['mic', 'cam', 'screen']) {
+    const s = want[k] || null, cur = pubs.get(k);
+    if (cur && cur.stream === s) continue;
+    if (cur) { for (const t of cur.tracks) { try { await room.localParticipant.unpublishTrack(t, false); } catch (e) {} } pubs.delete(k); }
+    if (!s) continue;
+    const tracks = [];
+    try {
+      if (k === 'mic') { const a = s.getAudioTracks()[0]; if (a) tracks.push((await room.localParticipant.publishTrack(a, { source: L.Track.Source.Microphone, dtx: true, red: true })).track); }
+      if (k === 'cam') { const v = s.getVideoTracks()[0]; if (v) tracks.push((await room.localParticipant.publishTrack(v, { source: L.Track.Source.Camera, simulcast: true })).track); }
+      if (k === 'screen') {
+        const v = s.getVideoTracks()[0], a = s.getAudioTracks()[0];
+        if (v) tracks.push((await room.localParticipant.publishTrack(v, { source: L.Track.Source.ScreenShare, simulcast: false })).track);
+        if (a) tracks.push((await room.localParticipant.publishTrack(a, { source: L.Track.Source.ScreenShareAudio })).track);
+      }
+    } catch (e) { console.warn('livekit publish', e); }
+    pubs.set(k, { stream: s, tracks });
+  }
+}
+async function lkSync() {
+  if (lkBusy) { lkAgain = true; return; }
+  lkBusy = true;
+  try {
+    do {
+      lkAgain = false;
+      const target = myRoom; if (!target || roomMode() !== 'lk') break;
+      if (!lk || lk.target !== target) {
+        if (lk) lkLeave();
+        const me0 = { target, room: null, pubs: new Map() }; lk = me0;
+        try {
+          me0.room = await lkOpen('room', target, {
+            track: (track, k, w) => { if (lk !== me0 || !k) return; lkOnTrack(track, k, w); },
+            untrack: (track, k, w) => { if (lk !== me0 || !k) return; lkOffTrack(track, k, w); },
+            gone: () => { if (lk !== me0) return; lk = null; lkRemote.clear(); lkBroken = true; toast('O servidor de mídia caiu. Voltando para a conexão direta.'); trackMe(); syncMedia(); renderAll(); },
+          });
+        } catch (e) {
+          if (lk === me0) lk = null;
+          lkBroken = true; trackMe();
+          toast(e.status === 409 ? e.message : 'Servidor de mídia indisponível agora. Usando conexão direta.');
+          syncMedia(); renderAll(); break;
+        }
+        if (lk !== me0) { try { me0.room.disconnect(); } catch (e) {} break; }
+        renderAll();
+      }
+      await lkPublish(lk.room, lk.pubs, local);
+    } while (lkAgain);
+  } finally { lkBusy = false; }
+}
+function lkOnTrack(track, k, w) {
+  const id = w.pid, m = members.get(id);
+  if (k === 'mic') return addAudio(id, new MediaStream([track.mediaStreamTrack]));
+  const key = id + ':' + (k === 'screenaudio' ? 'screen' : k);
+  if (k === 'screen' || k === 'screenaudio') {
+    let st = lkRemote.get(key); if (!st) { st = new MediaStream(); lkRemote.set(key, st); }
+    st.addTrack(track.mediaStreamTrack);
+    if (k === 'screen' || tiles.has(key)) addTile(key, st, labelFor(m ? m.uid : w.uid, 'screen'), false, 'screen', id);
+    return;
+  }
+  addTile(key, new MediaStream([track.mediaStreamTrack]), labelFor(m ? m.uid : w.uid, k), false, k, id);
+}
+function lkOffTrack(track, k, w) {
+  const id = w.pid, mt = track.mediaStreamTrack;
+  const holds = so => !!(so && so.getTracks().includes(mt)); // só tira se ainda for essa faixa (troca de aparelho manda a nova antes)
+  if (k === 'mic') { const a = audios.get(id); if (a && holds(a.srcObject)) dropRemote(id, 'mic'); return; }
+  if (k === 'screenaudio') { const st = lkRemote.get(id + ':screen'); if (st) try { st.removeTrack(mt); } catch (e) {} return; }
+  const t = tiles.get(id + ':' + k), v = t && t.querySelector('video');
+  if (v && !holds(v.srcObject)) return;
+  lkRemote.delete(id + ':' + k); dropRemote(id, k);
+}
+function lkLeave() {
+  const cur = lk; lk = null; lkRemote.clear();
+  if (cur && cur.room) { try { cur.room.disconnect(); } catch (e) {} }
+  if (cur) [...tiles.keys()].forEach(key => { if (!key.startsWith('me:') && !key.startsWith('p:')) removeTile(key); });
+  if (cur) [...audios.keys()].forEach(id => dropRemote(id, 'mic'));
+}
+// vigia a conexão direta: se falhar, pede o servidor
+setInterval(() => {
+  if (!myRoom || roomMode() !== 'p2p' || lkBroken || needRelay) { expectSince.clear(); return; }
+  const now = Date.now();
+  for (const c of [...outCalls.values(), ...inCalls.values()]) {
+    const pc = c.peerConnection; if (pc && pc.iceConnectionState === 'failed') { setRelay(); toast('A conexão direta falhou. Usando o servidor do Skipper.'); return; }
+  }
+  const live = new Set();
+  roomPeers().forEach(m => ['mic', 'cam', 'screen'].forEach(k => {
+    if (!m[k]) return;
+    const key = m.id + ':' + k + ':' + m.seq; live.add(key);
+    const got = k === 'mic' ? audios.has(m.id) : tiles.has(m.id + ':' + k);
+    if (got) { expectSince.delete(key); return; }
+    if (!expectSince.has(key)) expectSince.set(key, now);
+    else if (now - expectSince.get(key) > 15000) { setRelay(); toast('Não deu para conectar direto com ' + dn(m.uid) + '. Usando o servidor do Skipper.'); }
+  }));
+  expectSince.forEach((v, key) => { if (!live.has(key)) expectSince.delete(key); });
+}, 3000);
 </script>
 </body>
 </html>
