@@ -820,6 +820,7 @@
         <label>Câmera<select id="camSel"></select></label>
         <label>Microfone<select id="micSel"></select></label>
         <label>Supressão de ruído<select id="nsSel"><option value="ai">Forte (IA, corta teclado e ventilador)</option><option value="browser">Padrão do navegador</option><option value="off">Desligada (som original)</option></select></label>
+        <label class="sfxrow">Sons de aviso (entrar, sair, mutar)<select id="sfxSel"><option value="1">Ligados</option><option value="0">Desligados</option></select></label>
         <p id="devHint"></p>
       </div>
     </div>
@@ -1422,6 +1423,7 @@ async function onPresence() {
     });
   });
   members = next;
+  roomSounds();
   await ensureProfiles([...members.values()].map(m => m.uid));
   syncMedia(); cleanupMusic(); syncMusic(); renderAll();
 }
@@ -1440,6 +1442,7 @@ function joinVoice(cid) {
 }
 function leaveVoice() {
   if (!myRoom) return;
+  sfx('leave');
   KINDS.forEach(k => { if (local[k]) stopLocal(k, true); });
   const oldServer = voiceServer;
   leaveRoomMedia(); myRoom = null; voiceServer = null; voiceChannels = [];
@@ -1659,7 +1662,7 @@ async function toggle(kind) {
   const src0 = kind === 'mic' && micProc ? micProc.raw : s;
   src0.getTracks().forEach(t => t.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); }));
   if (kind !== 'mic') addTile('me:' + kind, s, labelFor(me, kind) + ' (você)', true, kind, peerId);
-  if (kind === 'mic') watchVoice(peerId, s); else if (kind === 'cam') loadDevices();
+  if (kind === 'mic') { watchVoice(peerId, s); sfx('unmute'); } else if (kind === 'cam') loadDevices();
   trackMe(); syncMedia(); renderAll();
 }
 // silenciar a chamada: para de ouvir todo mundo (e a música) e desliga o microfone, sem sair da sala
@@ -1674,7 +1677,7 @@ function applyDeaf() {
 async function toggleDeaf() {
   deaf = !deaf;
   if (deaf) { micBeforeDeaf = !!local.mic; if (local.mic) stopLocal('mic', true); }
-  applyDeaf(); trackMe(); renderAll();
+  applyDeaf(); trackMe(); renderAll(); sfx(deaf ? 'deaf' : 'undeaf');
   if (!deaf && micBeforeDeaf && myRoom && !local.mic) await toggle('mic');
   toast(deaf ? 'Chamada silenciada: você não ouve ninguém e seu microfone está desligado.' : 'Você voltou a ouvir a chamada.');
 }
@@ -1684,7 +1687,7 @@ function stopLocal(kind, quiet) {
   if (kind === 'mic') { closeProc(micProc); micProc = null; }
   outCalls.forEach((c, key) => { if (key.split(':')[1] === kind) { try { c.close(); } catch (e) {} outCalls.delete(key); } });
   removeTile('me:' + kind);
-  if (kind === 'mic') unwatchVoice(peerId);
+  if (kind === 'mic') { unwatchVoice(peerId); if (!quiet) sfx('mute'); }
   if (!quiet) { trackMe(); renderAll(); }
 }
 function updateButtons() {
@@ -3279,6 +3282,58 @@ setInterval(() => {
   }));
   expectSince.forEach((v, key) => { if (!live.has(key)) expectSince.delete(key); });
 }, 3000);
+
+/* ===================== Sons de aviso (feitos no próprio navegador, sem arquivos de áudio) ===================== */
+// Os sons são gerados na hora com osciladores, então são originais do Skipper (nada de direitos autorais).
+let sfxOn = true;
+try { sfxOn = localStorage.getItem('xc_sfx') !== '0'; } catch (e) {}
+$('sfxSel').value = sfxOn ? '1' : '0';
+$('sfxSel').onchange = e => { sfxOn = e.target.value === '1'; try { localStorage.setItem('xc_sfx', sfxOn ? '1' : '0'); } catch (x) {} if (sfxOn) sfx('join'); };
+const SFX = {
+  // [frequência, início (s), duração (s), tipo]
+  join:   [[523.25, 0, .16, 'sine'], [783.99, .09, .26, 'sine'], [1046.5, .09, .26, 'triangle']],
+  leave:  [[783.99, 0, .16, 'sine'], [523.25, .09, .28, 'sine'], [392, .09, .28, 'triangle']],
+  mute:   [[440, 0, .07, 'triangle'], [330, .06, .1, 'triangle']],
+  unmute: [[330, 0, .07, 'triangle'], [494, .06, .1, 'triangle']],
+  deaf:   [[392, 0, .09, 'sine'], [294, .08, .1, 'sine'], [220, .16, .16, 'sine']],
+  undeaf: [[220, 0, .09, 'sine'], [294, .08, .1, 'sine'], [440, .16, .16, 'sine']],
+  me:     [[392, 0, .12, 'sine'], [587.33, .08, .14, 'sine'], [880, .16, .24, 'triangle']],
+};
+let sfxCtx = null;
+function sfx(name) {
+  if (!sfxOn || !SFX[name]) return;
+  try {
+    if (!sfxCtx) sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (sfxCtx.state === 'suspended') sfxCtx.resume().catch(() => {});
+    const t0 = sfxCtx.currentTime + .02, master = sfxCtx.createGain();
+    master.gain.value = .16; master.connect(sfxCtx.destination);
+    SFX[name].forEach(([f, at, d, type]) => {
+      const o = sfxCtx.createOscillator(), g = sfxCtx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t0 + at);
+      g.gain.linearRampToValueAtTime(1, t0 + at + .012);
+      g.gain.exponentialRampToValueAtTime(.001, t0 + at + d);
+      o.connect(g).connect(master); o.start(t0 + at); o.stop(t0 + at + d + .05);
+    });
+    setTimeout(() => { try { master.disconnect(); } catch (e) {} }, 1200);
+  } catch (e) {}
+}
+// quem entrou ou saiu da sala em que estou
+let soundRoom = null, soundPeers = new Set(), soundAt = 0;
+function roomSounds() {
+  const inRoom = new Set([...members.values()].filter(m => myRoom && m.room === myRoom && m.id !== peerId).map(m => m.id));
+  if (soundRoom !== myRoom) {
+    const joined = !!myRoom && [...members.values()].some(m => m.id === peerId && m.room === myRoom);
+    if (!joined) { if (!myRoom) soundRoom = null; soundPeers = inRoom; return; }
+    soundRoom = myRoom; soundPeers = inRoom; soundAt = Date.now(); sfx('me'); return;
+  }
+  let added = 0, removed = 0;
+  // só toca para quem entrou depois de mim (quem já estava chega aos poucos logo que eu entro)
+  inRoom.forEach(id => { const m = members.get(id); if (!soundPeers.has(id) && m && Number(m.seq) > mySeq) added++; });
+  soundPeers.forEach(id => { if (!inRoom.has(id)) removed++; });
+  soundPeers = inRoom;
+  if (added) sfx('join'); else if (removed) sfx('leave');
+}
 </script>
 </body>
 </html>
