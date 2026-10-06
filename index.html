@@ -1243,6 +1243,8 @@ async function startApp(session) {
   }
   await openServer(first);
   if (isAdmin) $('annBtn').style.display = '';
+  // no celular já abre direto no chat, sem precisar do menu
+  if (isOverlayChat() && !(resume && resume.room)) { $('chat').classList.add('open'); paintChatBtn(); }
   setTimeout(checkAnnouncements, 1200);
   if (resume && resume.mode === 'dm') openDM(resume.chat && resume.chat.type === 'dm' ? resume.chat.id : null);
   else if (resume && resume.chat && resume.chat.type === 'ch' && chan(resume.chat.id)) openChat(resume.chat);
@@ -2016,7 +2018,7 @@ function renderNav() {
 }
 // lista de contatos estilo Skype: amigos com bolinha de status
 function renderContacts(nav) {
-  if (isGuest) { const h = el('div', 'hint', 'Você está como convidado. Crie uma conta para ter contatos, conversar no chat e mandar links.'); h.style.padding = '12px 8px'; nav.appendChild(h); return; }
+  if (isGuest) { const h = el('div', 'hint', 'Você está como convidado. Crie uma conta para ter contatos, conversar no privado, mandar links e imagens.'); h.style.padding = '12px 8px'; nav.appendChild(h); return; }
   const ok = friends.filter(f => f.status === 'accepted').map(friendOf);
   const on = ok.filter(u => statusOf(u) !== 'offline');
   const sec = el('div', 'sec'); sec.appendChild(el('span', null, 'Contatos' + (ok.length ? ' (' + on.length + ' online)' : '')));
@@ -2055,8 +2057,7 @@ $('reportMini').onclick = e => { e.stopPropagation(); reportDialog(''); };
 // convidado: sem chat, sem links, sem amigos, sem convites, sem denúncias
 function applyGuest() {
   if (!isGuest) return;
-  $('chatInput').disabled = true;
-  $('chatInput').placeholder = 'Convidados não podem mandar mensagens. Crie uma conta para conversar.';
+  // convidado conversa no chat do Skipper geral, mas sem links, sem imagens e sem pedir música
   $('attach').style.display = 'none';
   $('reportMini').style.display = 'none';
 }
@@ -2142,7 +2143,10 @@ async function renderChat() {
   renderChatHead();
   if (!chatView) { box.appendChild(el('div', 'sys', mode === 'dm' ? 'Escolha um amigo na lateral para conversar.' : 'Escolha um canal.')); return; }
   const v = chatView;
-  if (!isGuest) $('chatInput').placeholder = v.type === 'dm' ? 'Conversar com ' + dn(v.id) : curMusicChannel() ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar em ' + ((chan(v.id) || {}).name || '');
+  const guestMusic = isGuest && v.type === 'ch' && curMusicChannel();
+  $('chatInput').disabled = !!guestMusic;
+  if (guestMusic) $('chatInput').placeholder = 'Convidados não pedem músicas. Crie uma conta.';
+  else $('chatInput').placeholder = v.type === 'dm' ? 'Conversar com ' + dn(v.id) : curMusicChannel() ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar em ' + ((chan(v.id) || {}).name || '');
   const rows = await fetchMessages(v);
   if (chatView !== v) return;
   box.innerHTML = ''; box.dataset.last = '';
@@ -2187,11 +2191,12 @@ function appendMsg(m) {
   box.appendChild(d);
   if (atBottom || m.uid === me) box.scrollTop = box.scrollHeight;
 }
+const hasLink = t => /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|br|io|gg|me|tv|xyz|app|dev|ly|co|info|site|link|store|shop)\b)/i.test(t);
 async function sendMessage(text, image_url) {
   if (!chatView) return;
   if (chatView.type === 'ch') {
     const { error } = await sb.from('messages').insert({ channel_id: chatView.id, user_id: me, content: text || '', image_url: image_url || '' });
-    if (error) return toast('Não consegui enviar.');
+    if (error) return toast(isGuest ? 'Não consegui enviar. Convidado manda até 5 mensagens a cada 10 segundos, sem links.' : 'Não consegui enviar.');
     if (curMusicChannel() && text) musicRequest(text);
   } else {
     const { error } = await sb.from('dm_messages').insert({ sender: me, receiver: chatView.id, content: text || '', image_url: image_url || '' });
@@ -2200,14 +2205,15 @@ async function sendMessage(text, image_url) {
 }
 $('chatForm').onsubmit = e => {
   e.preventDefault();
-  if (isGuest) return;
   const text = $('chatInput').value.trim();
   if (!text) return;
+  if (isGuest && hasLink(text)) return toast('Convidados não podem mandar links. Crie uma conta para isso.');
   $('chatInput').value = '';
   sendMessage(text, '');
 };
 async function sendImage(file) {
   if (!file || !file.type.startsWith('image/') || !chatView) return;
+  if (isGuest) return toast('Convidados não podem mandar imagens. Crie uma conta para isso.');
   toast('Enviando imagem...');
   try { const url = await uploadChatImage(file); const t = $('chatInput').value.trim(); $('chatInput').value = ''; await sendMessage(t, url); toast('Imagem enviada.'); }
   catch (e) { toast('Não consegui enviar a imagem.'); }
