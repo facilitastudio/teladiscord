@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Skipper</title>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a2238">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Skipper">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -47,6 +54,22 @@
   .pcard .ban{height:110px !important}
   .pcard .ban.img{height:120px !important}
   .media-row{display:flex;gap:8px;flex-wrap:wrap}
+  #installBar{position:fixed;left:50%;bottom:18px;transform:translate(-50%,140%);z-index:60;display:flex;align-items:center;gap:12px;width:min(520px,calc(100vw - 32px));padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,#0d2c48,#0a2238);border:1px solid rgba(0,162,237,.45);box-shadow:0 14px 40px rgba(0,0,0,.5);transition:transform .35s cubic-bezier(.2,.9,.3,1.2)}
+  #installBar.on{transform:translate(-50%,0)}
+  #installBar img{width:42px;height:42px;border-radius:12px;flex:none}
+  #installBar .t{flex:1;min-width:0}
+  #installBar .t b{display:block;font-size:14px}
+  #installBar .t span{font-size:12px;color:var(--mut)}
+  #installBar .bt{display:flex;gap:6px;flex:none}
+  @media (max-width:480px){#installBar{flex-wrap:wrap}#installBar .bt{width:100%;justify-content:flex-end}}
+  .socials{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .soc{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:var(--soft);text-decoration:none;font-size:12px;max-width:100%}
+  .soc:hover{background:rgba(0,162,237,.18);border-color:var(--acc)}
+  .soc b{font-weight:800;color:var(--txt)}
+  .soc span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;color:var(--mut)}
+  .sogrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sogrid .so{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut);font-weight:700}
+  @media (max-width:520px){.sogrid{grid-template-columns:1fr}}
   .media-row button{flex:1;min-width:120px}
   .linkrow{display:none;gap:8px}
   .linkrow.on{display:flex}
@@ -607,6 +630,7 @@
       <div id="devPanel">
         <label>Câmera<select id="camSel"></select></label>
         <label>Microfone<select id="micSel"></select></label>
+        <label>Supressão de ruído<select id="nsSel"><option value="ai">Forte (IA, corta teclado e ventilador)</option><option value="browser">Padrão do navegador</option><option value="off">Desligada (som original)</option></select></label>
         <p id="devHint"></p>
       </div>
     </div>
@@ -717,6 +741,7 @@ function statusMenu(ev) {
   };
   box.appendChild(msg);
   const ed = el('div', 'mi', 'Editar perfil'); ed.onclick = () => { closePop(); editProfile(); }; box.appendChild(ed);
+  if (!isStandalone()) { const ins = el('div', 'mi', 'Instalar o Skipper no aparelho'); ins.onclick = () => { closePop(); installApp(true); }; box.appendChild(ins); }
   const pop = $('pop'); pop.innerHTML = ''; pop.appendChild(box); pop.onclick = e => e.stopPropagation();
   pop.classList.add('open');
   const r = $('meCard').getBoundingClientRect();
@@ -740,7 +765,7 @@ const dn = uid => { const p = profiles.get(uid); return p ? (p.display_name || p
 async function ensureProfiles(ids) {
   const miss = [...new Set(ids)].filter(id => id && !profiles.has(id));
   if (!miss.length) return;
-  const { data } = await sb.from('profiles').select('id,username,display_name,bio,avatar,banner_color,status_text,banner,badges,created_at').in('id', miss);
+  const { data } = await sb.from('profiles').select('id,username,display_name,bio,avatar,banner_color,status_text,banner,badges,socials,created_at').in('id', miss);
   (data || []).forEach(p => profiles.set(p.id, p));
 }
 function avatarEl(uid, size, speak, dot) {
@@ -1319,7 +1344,45 @@ $('sound').onclick = () => { audios.forEach(a => a.play().catch(() => {})); if (
 const pref = { cam: '', mic: '' };
 try { pref.cam = localStorage.getItem('tela_cam') || ''; pref.mic = localStorage.getItem('tela_mic') || ''; } catch (e) {}
 const camConstraints = () => Object.assign({ width: { ideal: 1280 }, height: { ideal: 720 } }, pref.cam ? { deviceId: { exact: pref.cam } } : {});
-const micConstraints = () => Object.assign({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, pref.mic ? { deviceId: { exact: pref.mic } } : {});
+// supressão de ruído: 'ai' (RNNoise, roda no próprio navegador), 'browser' (padrão) ou 'off'
+let nsMode = 'ai';
+try { nsMode = localStorage.getItem('xc_ns') || 'ai'; } catch (e) {}
+const micConstraints = () => Object.assign({ echoCancellation: true, noiseSuppression: nsMode === 'browser', autoGainControl: nsMode !== 'off' }, pref.mic ? { deviceId: { exact: pref.mic } } : {});
+let micProc = null, nsLib = null, nsWasm = null;
+async function rnnoise(raw) {
+  const base = new URL('vendor/noise/', location.href).href;
+  nsLib = nsLib || await import(base + 'index.js');
+  nsWasm = nsWasm || await nsLib.loadRnnoise({ url: base + 'rnnoise.wasm', simdUrl: base + 'rnnoise_simd.wasm' });
+  const ctx = new AudioContext({ sampleRate: 48000 });
+  try {
+    await ctx.audioWorklet.addModule(base + 'rnnoise/workletProcessor.js');
+    const src = ctx.createMediaStreamSource(raw);
+    const node = new nsLib.RnnoiseWorkletNode(ctx, { wasmBinary: nsWasm, maxChannels: 1 });
+    const dst = ctx.createMediaStreamDestination();
+    src.connect(node); node.connect(dst);
+    if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+    return { out: dst.stream, raw, ctx, node };
+  } catch (e) { ctx.close().catch(() => {}); throw e; }
+}
+function closeProc(p) {
+  if (!p) return;
+  p.raw.getTracks().forEach(t => t.stop());
+  try { p.node.destroy(); } catch (e) {}
+  try { p.ctx.close(); } catch (e) {}
+}
+// abre o microfone já com o filtro escolhido; devolve { s, proc }
+async function openMic() {
+  const raw = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false });
+  if (nsMode !== 'ai' || !window.AudioWorkletNode) return { s: raw, proc: null };
+  try { const proc = await rnnoise(raw); return { s: proc.out, proc }; }
+  catch (e) {
+    console.warn('supressor', e);
+    raw.getTracks().forEach(t => t.stop());
+    nsMode = 'browser'; const r2 = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false }); nsMode = 'ai';
+    toast('O supressor forte não funciona neste navegador. Usando o padrão.');
+    return { s: r2, proc: null };
+  }
+}
 // escolha antes da janela do navegador: o que compartilhar e com qual qualidade
 let shareCfg = { surface: 'monitor', res: 1080, fps: 30 };
 try { Object.assign(shareCfg, JSON.parse(localStorage.getItem('xc_share') || '{}')); } catch (e) {}
@@ -1372,15 +1435,16 @@ async function toggle(kind) {
       const opt = await screenPicker(); if (!opt) return;
       s = await navigator.mediaDevices.getDisplayMedia(opt);
     } else if (kind === 'cam') s = await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false });
-    else s = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false });
+    else { const o = await openMic(); s = o.s; micProc = o.proc; }
   } catch (e) {
     if (kind !== 'screen' && pref[kind]) { pref[kind] = ''; try { localStorage.removeItem('tela_' + kind); } catch (x) {} return toggle(kind); }
     if (kind !== 'screen') toast('Não consegui acessar ' + (kind === 'cam' ? 'a câmera' : 'o microfone') + '. Verifique a permissão do navegador.');
     return;
   }
-  if (!myRoom) { s.getTracks().forEach(t => t.stop()); return; }
+  if (!myRoom) { s.getTracks().forEach(t => t.stop()); if (kind === 'mic') { closeProc(micProc); micProc = null; } return; }
   local[kind] = s;
-  s.getTracks().forEach(t => t.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); }));
+  const src0 = kind === 'mic' && micProc ? micProc.raw : s;
+  src0.getTracks().forEach(t => t.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); }));
   if (kind !== 'mic') addTile('me:' + kind, s, labelFor(me, kind) + ' (você)', true, kind, peerId);
   if (kind === 'mic') watchVoice(peerId, s); else if (kind === 'cam') loadDevices();
   trackMe(); syncMedia(); renderAll();
@@ -1388,6 +1452,7 @@ async function toggle(kind) {
 function stopLocal(kind, quiet) {
   const s = local[kind]; local[kind] = null;
   if (s) s.getTracks().forEach(t => t.stop());
+  if (kind === 'mic') { closeProc(micProc); micProc = null; }
   outCalls.forEach((c, key) => { if (key.split(':')[1] === kind) { try { c.close(); } catch (e) {} outCalls.delete(key); } });
   removeTile('me:' + kind);
   if (kind === 'mic') unwatchVoice(peerId);
@@ -1418,7 +1483,7 @@ async function loadDevices() {
     if (!devs.length) { const o = el('option', null, 'Nenhum encontrado'); o.value = ''; sel.appendChild(o); sel.disabled = true; return false; }
     sel.disabled = false;
     devs.forEach((d, i) => { const o = el('option', null, d.label || (base + ' ' + (i + 1))); o.value = d.deviceId; sel.appendChild(o); });
-    const active = local[kind === 'videoinput' ? 'cam' : 'mic'];
+    const active = kind === 'audioinput' && micProc ? micProc.raw : local[kind === 'videoinput' ? 'cam' : 'mic'];
     const inUse = active && active.getTracks()[0] && active.getTracks()[0].getSettings().deviceId;
     sel.value = inUse || chosen || devs[0].deviceId;
     return devs.some(d => !d.label);
@@ -1430,20 +1495,36 @@ async function switchDevice(kind, deviceId) {
   pref[kind] = deviceId;
   try { localStorage.setItem('tela_' + kind, deviceId); } catch (e) {}
   const old = local[kind]; if (!old) return;
-  let s;
-  try { s = kind === 'cam' ? await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false }) : await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false }); }
+  await reopen(kind, (kind === 'cam' ? 'Câmera' : 'Microfone') + ' trocado.');
+}
+async function reopen(kind, msg) {
+  const old = local[kind]; if (!old) return;
+  let s, proc = null;
+  try {
+    if (kind === 'cam') s = await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false });
+    else { const o = await openMic(); s = o.s; proc = o.proc; }
+  }
   catch (e) { toast('Não consegui usar esse aparelho. Ele pode estar em uso por outro programa.'); loadDevices(); return; }
+  if (local[kind] !== old) { s.getTracks().forEach(t => t.stop()); closeProc(proc); return; }
   const nt = s.getTracks()[0];
+  const oldProc = kind === 'mic' ? micProc : null;
+  if (kind === 'mic') micProc = proc;
   outCalls.forEach((c, key) => { if (key.split(':')[1] !== kind || !c.peerConnection) return; c.peerConnection.getSenders().forEach(snd => { if (snd.track && snd.track.kind === nt.kind) snd.replaceTrack(nt).catch(() => {}); }); });
   local[kind] = s;
-  nt.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); });
-  old.getTracks().forEach(t => t.stop());
+  (proc ? proc.raw.getTracks()[0] : nt).addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); });
+  old.getTracks().forEach(t => t.stop()); closeProc(oldProc);
   if (kind === 'cam') { const t = tiles.get('me:cam'); if (t) t.querySelector('video').srcObject = s; }
   if (kind === 'mic') { unwatchVoice(peerId); watchVoice(peerId, s); }
-  toast((kind === 'cam' ? 'Câmera' : 'Microfone') + ' trocado.');
+  toast(msg);
 }
 $('camSel').onchange = e => switchDevice('cam', e.target.value);
 $('micSel').onchange = e => switchDevice('mic', e.target.value);
+$('nsSel').value = nsMode;
+$('nsSel').onchange = e => {
+  nsMode = e.target.value; try { localStorage.setItem('xc_ns', nsMode); } catch (x) {}
+  const m = { ai: 'Supressor forte ligado.', browser: 'Supressão padrão ligada.', off: 'Supressão desligada.' }[nsMode];
+  if (local.mic) reopen('mic', m); else toast(m + ' Vale quando ligar o microfone.');
+};
 $('devBtn').onclick = e => { e.stopPropagation(); const p = $('devPanel'); p.classList.toggle('open'); if (p.classList.contains('open')) loadDevices(); };
 $('devMini').onclick = e => { if (mode !== 'server') openServer(curServer); $('devBtn').onclick(e); };
 $('devPanel').onclick = e => e.stopPropagation();
@@ -1878,6 +1959,39 @@ function renderFriends() {
   });
 }
 
+/* ===================== Redes sociais ===================== */
+const SOCIALS = [
+  ['instagram', 'Instagram', 'https://instagram.com/', /instagram\.com\/([^/?#]+)/i],
+  ['tiktok', 'TikTok', 'https://www.tiktok.com/@', /tiktok\.com\/@([^/?#]+)/i],
+  ['youtube', 'YouTube', 'https://www.youtube.com/@', /youtube\.com\/@([^/?#]+)/i],
+  ['x', 'X', 'https://x.com/', /(?:x|twitter)\.com\/([^/?#]+)/i],
+  ['twitch', 'Twitch', 'https://www.twitch.tv/', /twitch\.tv\/([^/?#]+)/i],
+  ['github', 'GitHub', 'https://github.com/', /github\.com\/([^/?#]+)/i],
+];
+// guarda só o @ (aceita colar o link inteiro)
+function cleanHandle(v, rx) {
+  v = String(v || '').trim(); const m = v.match(rx); if (m) v = m[1];
+  v = v.replace(/^@/, '');
+  return /^[A-Za-z0-9._-]{1,40}$/.test(v) ? v : '';
+}
+function cleanSite(v) {
+  v = String(v || '').trim(); if (!v) return '';
+  if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+  try { const u = new URL(v); return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.includes('.') && v.length <= 200 ? u.href : ''; } catch (e) { return ''; }
+}
+function socialLinks(p) {
+  const so = (p && p.socials && typeof p.socials === 'object') ? p.socials : {};
+  const box = el('div', 'socials');
+  SOCIALS.forEach(([k, label, base, rx]) => {
+    const h = cleanHandle(so[k], rx); if (!h) return;
+    const a = el('a', 'soc soc-' + k); a.href = base + encodeURIComponent(h); a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.appendChild(el('b', null, label)); a.appendChild(el('span', null, '@' + h)); box.appendChild(a);
+  });
+  const site = cleanSite(so.site);
+  if (site) { const a = el('a', 'soc soc-site'); a.href = site; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.appendChild(el('b', null, 'Site')); a.appendChild(el('span', null, new URL(site).hostname.replace(/^www\./, ''))); box.appendChild(a); }
+  return box.childNodes.length ? box : null;
+}
+
 /* ===================== Perfil ===================== */
 function profileCard(uid) {
   const p = profiles.get(uid) || {};
@@ -1892,6 +2006,7 @@ function profileCard(uid) {
   if (p.badges && p.badges.length) pb.appendChild(badgeImgs(p, 44));
   const st = statusOf(uid); const sl = el('div', 'hint', STATUS[st][0] + (p.status_text ? ' · ' + p.status_text : '')); pb.appendChild(sl);
   if (p.bio) pb.appendChild(el('div', 'bio', p.bio));
+  const sl2 = socialLinks(p); if (sl2) pb.appendChild(sl2);
   card.appendChild(pb);
   return { card, pb };
 }
@@ -1959,8 +2074,22 @@ function editProfile() {
   const stt = el('input'); stt.value = p.status_text || ''; stt.maxLength = 80; stt.placeholder = 'Ex.: estudando para a prova';
   const bio = el('textarea'); bio.value = p.bio; bio.maxLength = 190; bio.placeholder = 'Fale um pouco sobre você';
   const color = el('input'); color.type = 'color'; color.value = p.banner_color || '#00a2ed'; color.style.cssText = 'height:44px;padding:4px;cursor:pointer';
-  const draw = () => { profiles.set(me, Object.assign({}, p, { display_name: name.value, bio: bio.value, banner_color: color.value, avatar, banner, status_text: stt.value })); preview.innerHTML = ''; preview.appendChild(profileCard(me).card); profiles.set(me, p); };
-  [name, bio, color, stt].forEach(i => i.oninput = draw);
+  // redes sociais
+  const soOld = (p.socials && typeof p.socials === 'object') ? p.socials : {};
+  const soInputs = {};
+  const soBox = el('div', 'sogrid');
+  [...SOCIALS.map(([k, label]) => [k, label, '@seu_usuario ou o link']), ['site', 'Site', 'seusite.com']].forEach(([k, label, ph]) => {
+    const i = el('input'); i.value = soOld[k] || ''; i.placeholder = ph; i.maxLength = 200;
+    const l = el('label', 'so'); l.appendChild(el('span', null, label)); l.appendChild(i); soBox.appendChild(l); soInputs[k] = i;
+  });
+  const readSocials = () => {
+    const o = {};
+    SOCIALS.forEach(([k, , , rx]) => { const h = cleanHandle(soInputs[k].value, rx); if (h) o[k] = h; });
+    const st = cleanSite(soInputs.site.value); if (st) o.site = st;
+    return o;
+  };
+  const draw = () => { profiles.set(me, Object.assign({}, p, { display_name: name.value, bio: bio.value, banner_color: color.value, avatar, banner, status_text: stt.value, socials: readSocials() })); preview.innerHTML = ''; preview.appendChild(profileCard(me).card); profiles.set(me, p); };
+  [name, bio, color, stt, ...Object.values(soInputs)].forEach(i => i.oninput = draw);
 
   // bloco de mídia (foto ou fundo): arquivo, link da internet ou remover
   const mediaBlock = (kind) => {
@@ -2026,12 +2155,17 @@ function editProfile() {
     el('div', 'lbl', 'Foto de perfil'), mediaBlock('avatar'),
     el('div', 'lbl', 'Fundo do perfil'), mediaBlock('banner'), el('div', 'hint', 'Cor usada quando não tem imagem de fundo:'), color,
     el('div', 'lbl', 'Nome de exibição'), name, el('div', 'lbl', 'Mensagem de status'), stt, el('div', 'lbl', 'Sobre mim'), bio];
-  if (!isGuest) items.push(el('div', 'lbl', 'Insígnias'), badgeArea);
+  if (!isGuest) items.push(el('div', 'lbl', 'Redes sociais'), el('div', 'hint', 'Coloque só o @ ou cole o link do seu perfil. Aparece no seu cartão para todo mundo.'), soBox, el('div', 'lbl', 'Insígnias'), badgeArea);
   items.push(out);
   openModal('Meu perfil', items, [
     ['Cancelar', closeModal],
     ['Salvar', async () => {
       const upd = { display_name: name.value.trim(), bio: bio.value.trim(), banner_color: color.value, avatar, banner, status_text: stt.value.trim() };
+      if (!isGuest) {
+        upd.socials = readSocials();
+        const bad = Object.keys(soInputs).find(k => soInputs[k].value.trim() && !(k in upd.socials));
+        if (bad) return toast('Confira o campo ' + (bad === 'site' ? 'Site' : SOCIALS.find(x => x[0] === bad)[1]) + ': use só letras, números, ponto, traço ou _.');
+      }
       const { error } = await sb.from('profiles').update(upd).eq('id', me);
       if (error) return toast('Não consegui salvar: ' + error.message);
       Object.assign(myProfile, upd); profiles.set(me, myProfile);
@@ -2360,6 +2494,54 @@ $('chatBtn').onclick = () => {
 applyChatHidden();
 window.addEventListener('resize', paintChatBtn);
 window.addEventListener('beforeunload', () => { try { pres.forEach(e => e.ch.untrack()); if (peer) peer.destroy(); } catch (e) {} });
+
+/* ===================== App instalável (PWA) ===================== */
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installEvt = null;
+if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+function installBar(show) {
+  let b = $('installBar');
+  if (!show) { if (b) b.classList.remove('on'); return; }
+  if (!b) {
+    b = el('div'); b.id = 'installBar';
+    const im = el('img'); im.src = 'icons/icon-192.png'; im.alt = '';
+    const t = el('div', 't'); t.appendChild(el('b', null, 'Quer instalar o Skipper como aplicativo?')); t.appendChild(el('span', null, 'Abre numa janela própria, com ícone na tela inicial, sem abrir o navegador.'));
+    const bt = el('div', 'bt');
+    const no = el('button', 'ghost', 'Agora não'); no.onclick = () => { try { localStorage.setItem('xc_install_no', String(Date.now())); } catch (e) {} installBar(false); };
+    const yes = el('button', 'primary', 'Instalar'); yes.onclick = () => { installBar(false); installApp(true); };
+    bt.append(no, yes); b.append(im, t, bt); document.body.appendChild(b);
+  }
+  requestAnimationFrame(() => b.classList.add('on'));
+}
+async function installApp(asked) {
+  if (isStandalone()) return toast('O Skipper já está instalado e aberto como aplicativo.');
+  if (installEvt) {
+    installEvt.prompt();
+    const r = await installEvt.userChoice.catch(() => null);
+    installEvt = null;
+    if (r && r.outcome === 'accepted') toast('Instalado! Procure o ícone do Skipper no seu aparelho.');
+    return;
+  }
+  if (!asked) return;
+  const steps = isIOS()
+    ? ['No iPhone ou iPad, abra o site no Safari.', 'Toque no botão Compartilhar (quadrado com a seta para cima).', 'Escolha "Adicionar à Tela de Início" e toque em Adicionar.']
+    : ['No Chrome ou Edge, clique no ícone de instalar na barra de endereço (um monitor com seta) ou abra o menu ⋮.', 'Escolha "Instalar Skipper" (ou "Adicionar à tela inicial" no celular).', 'Pronto: o Skipper abre numa janela própria.'];
+  const ol = el('ol'); ol.style.cssText = 'padding-left:20px;display:flex;flex-direction:column;gap:8px';
+  steps.forEach(x => ol.appendChild(el('li', null, x)));
+  openModal('Instalar o Skipper', [ol, el('div', 'hint', 'O Firefox no computador não instala sites como aplicativo. Use Chrome, Edge, Opera ou Safari.')], [['Entendi', closeModal, 'primary']]);
+}
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); installEvt = e;
+  let last = 0; try { last = Number(localStorage.getItem('xc_install_no') || 0); } catch (x) {}
+  if (Date.now() - last > 7 * 864e5) setTimeout(() => { if (installEvt) installBar(true); }, 4000);
+});
+addEventListener('appinstalled', () => { installEvt = null; installBar(false); });
+// no iPhone não existe o aviso automático: mostramos uma vez por semana
+if (isIOS() && !isStandalone()) setTimeout(() => {
+  let last = 0; try { last = Number(localStorage.getItem('xc_install_no') || 0); } catch (x) {}
+  if (Date.now() - last > 7 * 864e5) installBar(true);
+}, 6000);
 </script>
 </body>
 </html>
