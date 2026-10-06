@@ -6,147 +6,237 @@
 <title>Tela Compartilhada</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
-  :root{--bg:#0d0d0f;--side:#121215;--card:#1a1a1f;--line:#26262d;--txt:#f2f2f4;--mut:#8b8b96;--acc:#5b7cff;--red:#ff4d5e;--green:#3ccf7a}
+  :root{--rail:#1e1f22;--side:#2b2d31;--bg:#313338;--card:#383a40;--hover:#35373c;--sel:#404249;--line:#26272b;--input:#1e1f22;--txt:#f2f3f5;--soft:#dbdee1;--mut:#949ba4;--acc:#5b67f1;--red:#f23f43;--green:#23a55a}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{background:var(--bg);color:var(--txt);font:14px system-ui,-apple-system,"Segoe UI",sans-serif;height:100vh;height:100dvh;overflow:hidden}
-  button{font:inherit;font-weight:600;color:var(--txt);cursor:pointer;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 14px}
-  button:hover{border-color:#44444f}
-  button.primary,button.on{background:var(--acc);border-color:var(--acc)}
-  button.live{background:var(--red);border-color:var(--red)}
+  body{background:var(--bg);color:var(--txt);font:14px/1.4 "gg sans","Noto Sans",system-ui,-apple-system,"Segoe UI",sans-serif;height:100vh;height:100dvh;overflow:hidden}
+  button{font:inherit;font-weight:600;color:var(--txt);cursor:pointer;background:var(--card);border:0;border-radius:8px;padding:8px 14px}
+  button:hover{filter:brightness(1.12)}
+  button.primary{background:var(--acc)}
+  svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+  /* avatares */
+  .av{border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex-shrink:0;background-size:cover;background-position:center;transition:box-shadow .12s}
+  .av.speaking{box-shadow:0 0 0 2px var(--side),0 0 0 4px var(--green)}
 
   /* entrada */
-  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
-  #gate form{width:100%;max-width:360px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:14px}
-  #gate h1{font-size:20px}
-  #gate p{font-size:14px;color:var(--mut)}
-  #gate input{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--txt);font:16px system-ui;outline:none}
-  #gate input:focus{border-color:var(--acc)}
+  #gate{position:fixed;inset:0;background:linear-gradient(135deg,#3a3f8f,#1e1f22 70%);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+  #gate form{width:100%;max-width:420px;background:var(--bg);border-radius:10px;padding:32px;display:flex;flex-direction:column;gap:14px;box-shadow:0 10px 50px rgba(0,0,0,.45)}
+  #gate h1{font-size:24px;text-align:center}
+  #gate p{font-size:15px;color:var(--mut);text-align:center;margin-top:-6px}
+  #gate .lbl{font-size:12px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.02em}
+  #gate input[type=text],#gate input[type=password]{background:var(--input);border:0;border-radius:6px;padding:12px;color:var(--txt);font:16px inherit;outline:none;width:100%}
+  .pick{display:flex;align-items:center;gap:14px;cursor:pointer}
+  #gatePrev{width:64px;height:64px;font-size:26px;background:var(--card);color:var(--mut);border:2px dashed #55575e}
+  .pick span{color:var(--soft);font-size:14px}
+  .pick small{display:block;color:var(--mut);font-size:12px}
   #gateErr{color:var(--red);font-size:13px;min-height:16px}
+  #gate button{padding:12px;font-size:15px}
 
   /* estrutura */
-  #app{display:none;height:100%;grid-template-columns:240px minmax(0,1fr) 320px}
+  #app{display:none;height:100%;grid-template-columns:72px 240px minmax(0,1fr) 320px}
+
+  /* trilho de servidores */
+  #rail{background:var(--rail);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:8px}
+  .srv{width:48px;height:48px;border-radius:16px;background:var(--acc);display:grid;place-items:center;font-weight:800;font-size:15px;position:relative}
+  .srv::before{content:"";position:absolute;left:-16px;width:4px;height:40px;border-radius:0 4px 4px 0;background:#fff}
+  .railsep{width:32px;height:2px;background:var(--side);border-radius:1px}
 
   /* barra lateral */
-  #side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-  .brand{padding:16px;font-weight:700;font-size:16px;border-bottom:1px solid var(--line)}
-  .brand small{display:block;font-weight:400;font-size:12px;color:var(--mut);margin-top:2px}
+  #side{background:var(--side);display:flex;flex-direction:column;min-height:0}
+  .brand{height:48px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px;box-shadow:0 1px 0 rgba(0,0,0,.25);flex-shrink:0}
+  .brand small{font-weight:500;font-size:12px;color:var(--mut)}
   #nav{flex:1;overflow-y:auto;padding:8px}
-  .sec{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--mut);padding:14px 8px 6px;text-transform:uppercase}
-  .ch{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--mut);user-select:none}
-  .ch:hover{background:var(--card);color:var(--txt)}
-  .ch.active{background:#22222a;color:var(--txt)}
-  .ch.full{opacity:.5;cursor:not-allowed}
-  .ch .ico{width:16px;text-align:center;font-size:13px}
-  .ch .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ch .tag{font-size:11px;color:var(--mut)}
-  .badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:1px 6px;line-height:16px}
-  .who{padding:0 8px 6px 32px;display:flex;flex-direction:column;gap:4px}
-  .who div{font-size:12px;color:#c9c9d1;display:flex;gap:5px;align-items:center;flex-wrap:wrap}
-  .st{font-size:10px;font-weight:600;padding:1px 5px;border-radius:4px;background:#2a2a33;color:#c9c9d1}
+  .sec{font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--mut);padding:16px 8px 4px;text-transform:uppercase}
+  .ch{display:flex;align-items:center;gap:6px;padding:6px 8px;margin:1px 0;border-radius:4px;cursor:pointer;color:var(--mut);user-select:none}
+  .ch:hover{background:var(--hover);color:var(--soft)}
+  .ch.active{background:var(--sel);color:#fff}
+  .ch.full{opacity:.45;cursor:not-allowed}
+  .ch .ico{width:20px;display:grid;place-items:center;font-size:18px;font-weight:500;color:var(--mut)}
+  .ch .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+  .ch .tag{font-size:11px;color:var(--mut);background:var(--rail);padding:1px 6px;border-radius:8px}
+  .badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:0 6px;line-height:16px}
+  .who{padding:0 0 4px 30px;display:flex;flex-direction:column}
+  .who > div{display:flex;gap:10px;align-items:center;padding:6px 8px;margin:2px 0;border-radius:4px;color:var(--mut);font-size:14px}
+  #picker{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:16px;z-index:15}
+  #picker.open{display:flex}
+  #picker .box{width:100%;max-width:520px;background:var(--bg);border-radius:10px;padding:28px;box-shadow:0 10px 50px rgba(0,0,0,.5)}
+  #picker h2{font-size:22px;text-align:center}
+  #picker p{color:var(--mut);text-align:center;margin:4px 0 18px}
+  .room{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:8px;background:var(--side);margin-bottom:10px;cursor:pointer;border:2px solid transparent}
+  .room:hover{border-color:var(--acc)}
+  .room.full{opacity:.5;cursor:not-allowed;border-color:transparent}
+  .room .rh{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px}
+  .room .rh svg{color:var(--mut)}
+  .room .rh span{flex:1}
+  .room .rh small{font-weight:600;color:var(--mut);font-size:12px}
+  .room .ppl{display:flex;flex-wrap:wrap;gap:8px 16px}
+  .room .ppl div{display:flex;align-items:center;gap:8px;color:var(--soft);font-size:13px}
+  .room .vazia{color:var(--mut);font-size:13px}
+  .who > div:hover{background:var(--hover);color:var(--soft)}
+  .who .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who svg{width:15px;height:15px;color:var(--mut)}
+  .who svg.off{color:var(--red)}
+  .st{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--rail);color:var(--soft);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
   .st.live{background:var(--red);color:#fff}
-  .me{border-top:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer}
-  .me:hover{background:var(--card)}
-  .avatar{width:32px;height:32px;border-radius:50%;background:var(--acc);display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0}
-  .me b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .me small{display:block;color:var(--mut);font-size:11px}
+  #voice{background:#232428;padding:8px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+  #voice b{color:var(--green);font-size:13px;display:block}
+  #voice small{color:var(--mut);font-size:12px}
+  .me{background:#232428;padding:8px;display:flex;align-items:center;gap:8px}
+  .me .meinfo{flex:1;min-width:0;cursor:pointer;padding:2px 4px;border-radius:4px}
+  .me .meinfo:hover,.me #meAvatar:hover{background-color:var(--hover)}
+  .me b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+  .me small{display:block;color:var(--mut);font-size:12px}
+  #meAvatar{width:32px;height:32px;font-size:14px;cursor:pointer}
+  .ib{width:32px;height:32px;padding:0;display:grid;place-items:center;background:transparent;color:var(--soft);border-radius:4px}
+  .ib:hover{background:var(--hover)}
+  .ib.off{color:var(--red)}
 
   /* área principal */
-  #main{display:flex;flex-direction:column;min-width:0;min-height:0}
-  .top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
-  .top h2{font-size:15px}
-  .top small{color:var(--mut);font-size:12px;display:block;font-weight:400;margin-top:2px}
+  #main{display:flex;flex-direction:column;min-width:0;min-height:0;background:#000}
+  .top{height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;background:var(--bg);box-shadow:0 1px 0 rgba(0,0,0,.25);flex-shrink:0;z-index:2}
+  .top .t{display:flex;align-items:center;gap:8px;min-width:0}
+  .top .t svg{color:var(--mut)}
+  .top h2{font-size:15px;white-space:nowrap}
+  .top small{color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid #4e5058;padding-left:10px;margin-left:4px}
   .top .r{display:flex;gap:8px;flex-shrink:0}
-  #grid{flex:1;min-height:0;display:grid;gap:10px;padding:12px 16px;grid-template-columns:1fr;grid-template-rows:1fr}
+  .top .r button{padding:6px 12px;font-size:13px}
+  #grid{flex:1;min-height:0;display:grid;gap:8px;padding:12px;grid-template-columns:1fr;grid-template-rows:1fr}
   #grid.focus{grid-template-columns:1fr !important;grid-template-rows:minmax(0,1fr) 120px !important}
   #grid.focus.solo{grid-template-rows:minmax(0,1fr) !important}
-  .tile{position:relative;background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0;min-height:0;cursor:pointer;transition:border-color .15s}
-  .tile:hover{border-color:#55555f}
-  .tile.focused{border-color:var(--acc);cursor:zoom-out}
+  .tile{position:relative;background:var(--side);border-radius:8px;overflow:hidden;min-width:0;min-height:0;cursor:pointer;outline:2px solid transparent;outline-offset:-2px}
+  .tile:hover{outline-color:#4e5058}
+  .tile.focused{cursor:zoom-out}
+  .tile.talk{outline-color:var(--green)}
   .tile video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
   .tile.mirror video{transform:scaleX(-1)}
   .tile.cam video{object-fit:cover}
   .tile.focused.cam video{object-fit:contain}
-  .tile .bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:6px;align-items:center;justify-content:space-between;padding:8px;background:linear-gradient(transparent,rgba(0,0,0,.75))}
-  .tile .bar span{font-size:13px;font-weight:600;padding-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tile .bar div{display:flex;gap:6px}
-  .tile .bar button{padding:5px 9px;font-size:12px;background:rgba(20,20,24,.85)}
-  #empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--mut);padding:20px;border:1px dashed var(--line);border-radius:14px}
+  .tile .pav{position:absolute;inset:0;display:grid;place-items:center}
+  .tile .pav .av{width:min(96px,40%);aspect-ratio:1;font-size:36px}
+  .tile .bar{position:absolute;left:8px;right:8px;bottom:8px;display:flex;gap:6px;align-items:center;justify-content:space-between;pointer-events:none}
+  .tile .bar span{font-size:13px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(0,0,0,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:5px;align-items:center}
+  .tile .bar span svg{width:14px;height:14px;color:var(--red)}
+  .tile .bar div{display:flex;gap:6px;pointer-events:auto}
+  .tile .bar button{padding:4px 9px;font-size:12px;background:rgba(0,0,0,.6)}
+  #empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--mut);padding:20px}
   #empty b{display:block;color:var(--txt);font-size:18px;margin-bottom:6px}
-  #strip{display:none;gap:10px;overflow-x:auto;overflow-y:hidden;min-height:0}
+  #strip{display:none;gap:8px;overflow-x:auto;overflow-y:hidden;min-height:0}
   #grid.focus:not(.solo) #strip{display:flex}
   #strip .tile{flex:0 0 auto;height:100%;aspect-ratio:16/9}
   #strip .tile .bar div{display:none}
   #strip .tile .bar span{font-size:12px}
-  .controls{display:flex;justify-content:center;gap:8px;padding:0 16px 14px;flex-shrink:0;flex-wrap:wrap}
+  #strip .tile .pav .av{font-size:22px}
+  .controls{display:flex;justify-content:center;gap:12px;padding:6px 16px 16px;flex-shrink:0;position:relative}
+  .rb{width:52px;height:52px;border-radius:50%;padding:0;display:grid;place-items:center;background:#2b2d31;color:var(--soft)}
+  .rb svg{width:24px;height:24px}
+  .rb.on{background:var(--green);color:#fff}
+  .rb.live{background:var(--acc);color:#fff}
+  .rb.mut{color:var(--red)}
+  .rb[data-tip]{position:relative}
+  .rb[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#111214;color:#dbdee1;font-size:13px;font-weight:600;padding:6px 10px;border-radius:5px;white-space:nowrap;pointer-events:none}
+
+  /* música */
+  #np{display:none;align-items:center;gap:12px;margin:0 12px 6px;padding:8px 12px;background:var(--side);border-radius:8px;flex-shrink:0}
+  #ytBox{display:none;width:128px;height:72px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#000}
+  #ytBox iframe{width:128px;height:72px;display:block;pointer-events:none}
+  #spBox{display:none;width:260px;height:80px;flex-shrink:0;border-radius:12px;overflow:hidden}
+  #np .info{flex:1;min-width:0}
+  #np .info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #np .info small{color:var(--mut);font-size:12px}
+  #npVol{width:110px;accent-color:var(--acc)}
 
   /* chat */
-  #chat{background:var(--side);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-  .tabs{display:flex;gap:6px;padding:10px;border-bottom:1px solid var(--line);align-items:center}
-  .tabs button{flex:1;padding:7px 6px;font-size:13px;position:relative}
-  .tabs button.active{background:#26262f;border-color:#3a3a46}
-  .tabs .badge{position:absolute;top:-7px;right:-5px}
+  #chat{background:var(--bg);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .tabs{height:48px;display:flex;gap:4px;padding:0 8px;box-shadow:0 1px 0 rgba(0,0,0,.25);align-items:center;flex-shrink:0}
+  .tabs button{flex:1;padding:6px 4px;font-size:13px;position:relative;background:transparent;color:var(--mut);font-weight:500}
+  .tabs button:hover{background:var(--hover);color:var(--soft);filter:none}
+  .tabs button.active{background:var(--sel);color:#fff}
+  .tabs .badge{position:absolute;top:-4px;right:-2px}
   #chatClose{flex:0 0 auto;display:none}
-  #msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+  #msgs{flex:1;overflow-y:auto;padding:12px 0;display:flex;flex-direction:column}
+  .msg{display:flex;gap:12px;padding:2px 14px;margin-top:14px}
+  .msg:hover{background:#2e3035}
+  .msg.cont{margin-top:0}
+  .msg .av{width:38px;height:38px;font-size:15px;margin-top:2px}
+  .msg.cont .av{visibility:hidden;height:0}
+  .msg .c{min-width:0;flex:1}
   .msg .h{font-size:12px;color:var(--mut)}
-  .msg .h b{color:var(--txt);margin-right:6px;font-size:13px}
-  .msg .b{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45;margin-top:2px}
-  .sys{color:var(--mut);font-size:12px;text-align:center;margin:auto 0}
-  #chatForm{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)}
-  #chatInput{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--txt);font:inherit;outline:none}
-  #chatInput:focus{border-color:var(--acc)}
+  .msg .h b{color:var(--txt);margin-right:6px;font-size:15px;font-weight:600}
+  .msg.cont .h{display:none}
+  .msg .b{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.4;color:var(--soft)}
+  .msg.bot .h b{color:#8d96ff}
+  .msg .botag{background:var(--acc);color:#fff;font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;margin-right:6px;vertical-align:1px}
+  .sys{color:var(--mut);font-size:13px;text-align:center;margin:auto 16px}
+  #chatForm{display:flex;gap:6px;padding:0 12px 16px}
+  #chatInput{flex:1;min-width:0;background:var(--card);border:0;border-radius:8px;padding:11px 14px;color:var(--txt);font:inherit;outline:none}
+  #chatForm button{display:none}
 
-  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#22222a;border:1px solid #3a3a46;padding:10px 16px;border-radius:10px;font-size:13px;z-index:30;display:none;max-width:90%}
-  .controls{position:relative}
-  #devPanel{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));background:var(--card);border:1px solid #3a3a46;border-radius:14px;padding:16px;display:none;flex-direction:column;gap:12px;z-index:8;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111214;padding:10px 16px;border-radius:8px;font-size:13px;z-index:30;display:none;max-width:90%;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  #devPanel{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));background:#111214;border-radius:8px;padding:16px;display:none;flex-direction:column;gap:12px;z-index:8;box-shadow:0 12px 40px rgba(0,0,0,.5)}
   #devPanel.open{display:flex}
-  #devPanel label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:6px}
-  #devPanel select{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;outline:none;width:100%}
-  #devPanel select:focus{border-color:var(--acc)}
+  #devPanel label{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--mut);display:flex;flex-direction:column;gap:6px}
+  #devPanel select{background:var(--input);color:var(--txt);border:0;border-radius:4px;padding:10px;font:inherit;text-transform:none;outline:none;width:100%}
   #devPanel p{font-size:12px;color:var(--mut)}
   #sound{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:30;display:none}
 
   .mob{display:none}
-  @media (max-width:1100px){
-    #app{grid-template-columns:220px minmax(0,1fr)}
+  @media (max-width:1200px){
+    #app{grid-template-columns:72px 220px minmax(0,1fr)}
     #chat{position:fixed;top:0;right:0;bottom:0;width:min(340px,100%);z-index:10;transform:translateX(100%);transition:transform .2s}
     #chat.open{transform:none}
     #chatClose,.chatbtn{display:inline-block}
   }
-  @media (max-width:720px){
+  @media (max-width:760px){
     #app{grid-template-columns:minmax(0,1fr)}
-    #side{position:fixed;top:0;left:0;bottom:0;width:min(260px,85%);z-index:10;transform:translateX(-100%);transition:transform .2s}
+    #rail{display:none}
+    #side{position:fixed;top:0;left:0;bottom:0;width:min(280px,85%);z-index:10;transform:translateX(-100%);transition:transform .2s}
     #side.open{transform:none}
     .sidebtn{display:inline-block}
-    #copyBtn{display:none}
+    #copyBtn,.top small{display:none}
   }
 </style>
 </head>
 <body>
 <div id="gate">
   <form id="gateForm" autocomplete="off">
-    <h1>Tela Compartilhada</h1>
-    <p>Escolha seu nome e digite o código de acesso.</p>
-    <input id="nameInput" type="text" placeholder="Seu nome" maxlength="24" autofocus>
-    <input id="gateInput" type="password" placeholder="Código de acesso">
+    <h1>Bem-vindo!</h1>
+    <p>Escolha como quer aparecer e digite o código de acesso.</p>
+    <label class="pick" title="Escolher foto">
+      <div class="av" id="gatePrev">+</div>
+      <span>Foto de perfil<small>Opcional. Clique para escolher.</small></span>
+      <input type="file" id="gateFile" accept="image/*" hidden>
+    </label>
+    <div class="lbl">Seu nome</div>
+    <input id="nameInput" type="text" maxlength="24" autofocus>
+    <div class="lbl">Código de acesso</div>
+    <input id="gateInput" type="password">
     <div id="gateErr"></div>
     <button class="primary" type="submit">Entrar</button>
   </form>
 </div>
 
 <div id="app">
+  <nav id="rail"><div class="srv" title="Tela Compartilhada">TC</div><div class="railsep"></div></nav>
+
   <aside id="side">
-    <div class="brand">Tela Compartilhada<small id="online">Conectando...</small></div>
+    <div class="brand">Tela Compartilhada<small id="online">...</small></div>
     <nav id="nav"></nav>
-    <div class="me" id="meCard" title="Clique para trocar seu nome">
-      <div class="avatar" id="meAvatar"></div>
-      <div style="min-width:0"><b id="meName"></b><small>Clique para trocar o nome</small></div>
+    <div id="voice">
+      <div style="flex:1;min-width:0"><b>Voz conectada</b><small id="voiceRoom">Sala geral</small></div>
+    </div>
+    <div class="me" id="meCard">
+      <div class="av" id="meAvatar" title="Trocar foto de perfil"></div>
+      <div class="meinfo" id="meInfo" title="Trocar nome"><b id="meName"></b><small id="meStatus">Online</small></div>
+      <button class="ib" id="micMini" title="Microfone"></button>
+      <button class="ib" id="devMini" title="Escolher câmera e microfone"></button>
     </div>
   </aside>
 
   <section id="main">
     <div class="top">
-      <div style="min-width:0">
+      <div class="t">
+        <span id="roomIco"></span>
         <h2 id="roomTitle">Sala geral</h2>
         <small id="roomInfo">Conectando...</small>
       </div>
@@ -157,14 +247,21 @@
       </div>
     </div>
     <main id="grid">
-      <div id="empty"><b>Ninguém com câmera ou tela ligada nesta sala</b>Use os botões abaixo para ligar sua câmera, microfone ou compartilhar a tela.</div>
+      <div id="empty"><b>Conectando...</b></div>
       <div id="strip"></div>
     </main>
+    <div id="np">
+      <div id="ytBox"><div id="ytPlayer"></div></div>
+      <div id="spBox"><div id="spPlayer"></div></div>
+      <div class="info"><b id="npTitle"></b><small id="npBy"></small></div>
+      <input type="range" id="npVol" min="0" max="100" value="60" title="Volume da música">
+      <button id="npSkip">Pular</button>
+    </div>
     <div class="controls">
-      <button id="micBtn">Microfone</button>
-      <button id="camBtn">Câmera</button>
-      <button id="screenBtn">Compartilhar tela</button>
-      <button id="devBtn" title="Escolher câmera e microfone">Dispositivos</button>
+      <button class="rb" id="camBtn"></button>
+      <button class="rb" id="screenBtn"></button>
+      <button class="rb" id="micBtn"></button>
+      <button class="rb" id="devBtn" data-tip="Dispositivos"></button>
       <div id="devPanel">
         <label>Câmera<select id="camSel"></select></label>
         <label>Microfone<select id="micSel"></select></label>
@@ -177,11 +274,13 @@
     <div class="tabs" id="tabs"></div>
     <div id="msgs"></div>
     <form id="chatForm" autocomplete="off">
-      <input id="chatInput" maxlength="1000" placeholder="Mensagem">
+      <input id="chatInput" maxlength="1000" placeholder="Conversar">
       <button class="primary" type="submit">Enviar</button>
     </form>
   </aside>
 </div>
+<input type="file" id="avatarFile" accept="image/*" hidden>
+<div id="picker"><div class="box"><h2>Escolha uma sala</h2><p>Você pode trocar de sala depois pela barra lateral.</p><div id="pickList"></div></div></div>
 
 <div id="toast"></div>
 <button id="sound" class="primary">Clique para ativar o áudio da sala</button>
@@ -199,11 +298,63 @@ const CHATS = [
   { id: 'c1', name: 'Chat 01' },
   { id: 'c2', name: 'Chat 02' },
   { id: 'c3', name: 'Chat 03' },
+  { id: 'musica', name: 'Música' },
 ];
 const KINDS = ['screen', 'cam', 'mic'];
+// Opcional: com uma chave da YouTube Data API v3 dá para pedir música pelo nome (!tocar nome).
+// Sem chave, os pedidos funcionam com link do YouTube ou do Spotify.
+const YT_API_KEY = '';
+const BOT = 'Bot de música';
+const cleanTitle = t => String(t || '').replace(/[<>]/g, '').trim().slice(0, 120);
 
 const $ = id => document.getElementById(id);
 const clean = t => String(t || '').replace(/[<>&"']/g, '').trim().slice(0, 24);
+const ICON = {
+  mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>',
+  micOff: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/><path d="M4 4l16 16" stroke="#f23f43"/></svg>',
+  cam: '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="3"/><path d="M16 10.5l5-3v9l-5-3z"/></svg>',
+  camOff: '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="3"/><path d="M16 10.5l5-3v9l-5-3z"/><path d="M3 3l18 18" stroke="#f23f43"/></svg>',
+  screen: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4M12 13.5V8M9.2 10.6L12 7.8l2.8 2.8"/></svg>',
+  gear: '<svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
+  speaker: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+};
+const COLORS = ['#5b67f1', '#3ba55c', '#eb459e', '#faa61a', '#ed4245', '#3498db', '#9b59b6', '#1abc9c'];
+const colorOf = n => { let h = 0; for (const ch of String(n)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
+const avatars = new Map();   // id -> foto (data URL)
+let myAvatar = '';
+try { myAvatar = localStorage.getItem('tela_avatar') || ''; } catch (e) {}
+// cria o círculo do avatar (foto ou inicial colorida)
+function avatarEl(uid, name, size, photo) {
+  const a = document.createElement('div');
+  a.className = 'av';
+  if (uid) a.dataset.uid = uid;
+  if (size) { a.style.width = a.style.height = size + 'px'; a.style.fontSize = Math.round(size * 0.42) + 'px'; }
+  const img = photo !== undefined ? photo : avatars.get(uid);
+  if (img) a.style.backgroundImage = 'url("' + img + '")';
+  else { a.style.background = uid === 'bot' ? '#5b67f1' : colorOf(name); a.textContent = uid === 'bot' ? '♪' : (String(name || '?')[0] || '?').toUpperCase(); }
+  return a;
+}
+// reduz a foto para 128x128 (recorte quadrado) para ficar leve
+function resizeImage(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onerror = rej;
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = rej;
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = c.height = 128;
+        const sz = Math.min(img.width, img.height);
+        c.getContext('2d').drawImage(img, (img.width - sz) / 2, (img.height - sz) / 2, sz, sz, 0, 0, 128, 128);
+        res(c.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
 async function sha256(txt) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -223,12 +374,23 @@ async function tryEnter(pass, name) {
   $('gate').remove();
   $('app').style.display = 'grid';
   $('meName').textContent = myName;
-  $('meAvatar').textContent = myName[0].toUpperCase();
+  renderMe();
   renderAll();
+  updateButtons();
   boot();
   return 'ok';
 }
 
+function paintGatePrev() {
+  const g = $('gatePrev');
+  if (myAvatar) { g.style.backgroundImage = 'url("' + myAvatar + '")'; g.textContent = ''; g.style.border = '0'; }
+}
+paintGatePrev();
+$('gateFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { myAvatar = await resizeImage(f); try { localStorage.setItem('tela_avatar', myAvatar); } catch (x) {} paintGatePrev(); }
+  catch (x) { $('gateErr').textContent = 'Não consegui abrir essa imagem.'; }
+};
 $('gateForm').onsubmit = async e => {
   e.preventDefault();
   const r = await tryEnter($('gateInput').value, $('nameInput').value);
@@ -246,7 +408,7 @@ $('gateForm').onsubmit = async e => {
 /* ================= Estado ================= */
 let peer = null, hubConn = null, hubPeer = null, hub = null;
 let members = new Map();          // id -> {id,name,room,seq,screen,cam,mic}
-let myRoom = 'geral';
+let myRoom = null;              // escolhida na tela de salas
 const local = { screen: null, cam: null, mic: null };
 const outCalls = new Map();       // "id:tipo:seq" -> chamada que eu fiz
 const inCalls = new Map();        // "id:tipo" -> chamada recebida
@@ -257,6 +419,10 @@ const chats = {}, unread = {};
 CHATS.forEach(c => { chats[c.id] = []; unread[c.id] = 0; });
 let curChat = 'c1';
 let statusText = 'Conectando...';
+let music = {};                 // sala -> música tocando
+let clockOffset = 0;
+const hubNow = () => Date.now() + clockOffset;
+const mkey = c => c ? c.kind + ':' + c.id + ':' + c.startedAt : '';
 
 const send = d => { if (hubConn && hubConn.open) { try { hubConn.send(d); } catch (e) {} } };
 const sendState = () => send({ t: 'state', screen: !!local.screen, cam: !!local.cam, mic: !!local.mic });
@@ -269,7 +435,7 @@ function toast(t) { const el = $('toast'); el.textContent = t; el.style.display 
 // cada sala e as mensagens. Se essa pessoa sair, outra assume sozinha.
 function boot() {
   peer = new Peer();
-  peer.on('open', ensureHub);
+  peer.on('open', () => { renderMe(); ensureHub(); });
   peer.on('call', onCall);
   peer.on('error', e => {
     if (e.type === 'peer-unavailable') { if (String(e.message).includes(HUBID)) hubLost(); return; }
@@ -295,7 +461,7 @@ function connectHub() {
   const c = peer.connect(HUBID, { reliable: true, metadata: { name: myName } });
   hubConn = c;
   let opened = false;
-  c.on('open', () => { opened = true; lastHub = Date.now(); setStatus(''); send({ t: 'join', room: myRoom }); sendState(); });
+  c.on('open', () => { opened = true; lastHub = Date.now(); setStatus(''); if (myRoom) send({ t: 'join', room: myRoom }); sendState(); if (myAvatar) send({ t: 'avatar', data: myAvatar }); });
   c.on('data', onHubData);
   c.on('close', () => { if (hubConn === c) hubLost(); });
   setTimeout(() => { if (!opened && hubConn === c) hubLost(); }, 8000);
@@ -312,11 +478,12 @@ function hubLost() {
 
 /* ================= Servidor da sala (roda só em quem hospeda) ================= */
 function startHub() {
-  hub = { conns: new Map(), chats: JSON.parse(JSON.stringify(chats)), seq: 0 };
+  hub = { conns: new Map(), chats: JSON.parse(JSON.stringify(chats)), seq: 0, music: JSON.parse(JSON.stringify(music)) };
   hubPeer.on('connection', conn => {
     conn.on('open', () => {
-      hub.conns.set(conn.peer, { conn, id: conn.peer, name: clean(conn.metadata && conn.metadata.name) || 'Convidado', room: null, seq: 0, screen: false, cam: false, mic: false, seen: Date.now() });
-      try { conn.send({ t: 'history', chats: hub.chats }); } catch (e) {}
+      hub.conns.set(conn.peer, { conn, id: conn.peer, name: clean(conn.metadata && conn.metadata.name) || 'Convidado', room: null, seq: 0, screen: false, cam: false, mic: false, seen: Date.now(), avatar: '' });
+      const map = {}; hub.conns.forEach(x => { if (x.avatar) map[x.id] = x.avatar; });
+      try { conn.send({ t: 'history', chats: hub.chats }); conn.send({ t: 'avatars', map }); hubBroadcast(); } catch (e) {}
     });
     conn.on('data', d => hubData(conn.peer, d));
     conn.on('close', () => { if (hub.conns.delete(conn.peer)) hubBroadcast(); });
@@ -335,13 +502,20 @@ function hubData(id, d) {
   const m = hub.conns.get(id);
   if (!m || !d) return;
   m.seen = Date.now();
-  if (d.t === 'ping') { try { m.conn.send({ t: 'pong' }); } catch (e) {} return; }
+  if (d.t === 'ping') { try { m.conn.send({ t: 'pong', now: Date.now() }); } catch (e) {} return; }
+  if (d.t === 'music') return hubMusic(m, d);
+  if (d.t === 'avatar') {
+    const data = String(d.data || '');
+    if (data && (!data.startsWith('data:image/') || data.length > 80000)) return;
+    m.avatar = data;
+    hub.conns.forEach(x => { try { x.conn.send({ t: 'avatar', id: m.id, data }); } catch (e) {} });
+    return;
+  }
   if (d.t === 'join') {
     const r = ROOMS.find(r => r.id === d.room);
     if (!r) return;
     if (r.max && roomCount(r.id, id) >= r.max) {
       try { m.conn.send({ t: 'denied', room: r.id }); } catch (e) {}
-      if (!m.room) { m.room = 'geral'; m.seq = ++hub.seq; try { m.conn.send({ t: 'moved', room: 'geral' }); } catch (e) {} hubBroadcast(); }
       return;
     }
     m.room = r.id; m.seq = ++hub.seq;
@@ -354,15 +528,44 @@ function hubData(id, d) {
     const arr = hub.chats[d.ch];
     const text = String(d.text || '').slice(0, 1000).trim();
     if (!arr || !text) return;
-    const msg = { name: m.name, text, ts: Date.now() };
+    const msg = { name: m.name, uid: m.id, text, ts: Date.now() };
     arr.push(msg); if (arr.length > 200) arr.shift();
     hub.conns.forEach(x => { try { x.conn.send({ t: 'msg', ch: d.ch, m: msg }); } catch (e) {} });
   }
 }
 
+function hubPost(ch, text) {
+  const msg = { name: BOT, uid: 'bot', text, ts: Date.now(), bot: true };
+  const arr = hub.chats[ch]; arr.push(msg); if (arr.length > 200) arr.shift();
+  hub.conns.forEach(x => { try { x.conn.send({ t: 'msg', ch, m: msg }); } catch (e) {} });
+}
+
+function hubMusic(m, d) {
+  const room = m.room; if (!room) return;
+  const rname = ROOMS.find(r => r.id === room).name;
+  const cur = hub.music[room];
+  if (d.action === 'play') {
+    if (!['yt', 'sp'].includes(d.kind) || !/^[\w-]{6,40}$/.test(d.id || '')) return;
+    if (cur) return hubPost('musica', 'Já tem música tocando na ' + rname + ': "' + cur.title + '". Só uma por vez: espere acabar ou mande !pular.');
+    const title = cleanTitle(d.title) || 'Música';
+    hub.music[room] = { kind: d.kind, id: d.id, title, by: m.name, byId: m.id, startedAt: Date.now() };
+    hubPost('musica', 'Tocando na ' + rname + ': "' + title + '" (pedido por ' + m.name + ')');
+  } else if (d.action === 'skip') {
+    if (!cur) return hubPost('musica', 'Não tem música tocando na ' + rname + '.');
+    delete hub.music[room];
+    hubPost('musica', m.name + ' parou a música na ' + rname + '.');
+  } else if (d.action === 'end') {
+    if (!cur || mkey(cur) !== d.key) return;
+    delete hub.music[room];
+  } else return;
+  hubBroadcast();
+}
+
 function hubBroadcast() {
+  // música para quando a sala esvazia
+  Object.keys(hub.music).forEach(r => { if (!roomCount(r)) delete hub.music[r]; });
   const list = [...hub.conns.values()].filter(m => m.room).map(({ id, name, room, seq, screen, cam, mic }) => ({ id, name, room, seq, screen, cam, mic }));
-  hub.conns.forEach(x => { try { x.conn.send({ t: 'members', list }); } catch (e) {} });
+  hub.conns.forEach(x => { try { x.conn.send({ t: 'members', list, music: hub.music, now: Date.now() }); } catch (e) {} });
 }
 
 /* ================= Mensagens do servidor ================= */
@@ -379,12 +582,23 @@ function onHubData(d) {
     if (d.ch === curChat) { appendMsg(d.m); if (!chatVisible()) unread[d.ch]++; }
     else unread[d.ch]++;
     renderNav(); renderTabs();
+  } else if (d.t === 'avatars') {
+    Object.entries(d.map || {}).forEach(([id, data]) => avatars.set(id, data));
+    renderAll(); renderChat();
+  } else if (d.t === 'avatar') {
+    if (d.data) avatars.set(d.id, d.data); else avatars.delete(d.id);
+    renderAll(); renderChat();
+  } else if (d.t === 'pong') {
+    if (d.now) clockOffset = d.now - Date.now();
   } else if (d.t === 'members') {
     members = new Map(d.list.map(m => [m.id, m]));
+    music = d.music || {};
+    if (d.now) clockOffset = d.now - Date.now();
+    syncMusic();
     syncMedia();
     renderAll();
   } else if (d.t === 'moved') {
-    if (d.room !== myRoom) { leaveRoomMedia(); myRoom = d.room; }
+    if (d.room !== myRoom) { leaveRoomMedia(); myRoom = d.room; syncMusic(); }
     renderAll();
   } else if (d.t === 'denied') {
     toast('Essa sala privada já tem 2 pessoas.');
@@ -395,6 +609,7 @@ function joinRoom(id) {
   if (id === myRoom) return;
   const r = ROOMS.find(r => r.id === id);
   if (r.max && countIn(id) >= r.max) return toast('Essa sala privada já tem 2 pessoas.');
+  if (!myRoom) $('picker').classList.remove('open');
   if (!hubConn || !hubConn.open) return toast('Ainda conectando, tente em instantes.');
   send({ t: 'join', room: id });
   $('side').classList.remove('open');
@@ -462,17 +677,47 @@ function onCall(call) {
 const labelFor = (name, k) => k === 'screen' ? name + ' · tela' : name;
 
 function dropRemote(id, k) {
-  if (k === 'mic') { const a = audios.get(id); if (a) { a.srcObject = null; a.remove(); audios.delete(id); } }
+  if (k === 'mic') { unwatchVoice(id); const a = audios.get(id); if (a) { a.srcObject = null; a.remove(); audios.delete(id); } }
   else removeTile(id + ':' + k);
 }
+
+let actx = null;
+const meters = new Map();   // id -> analisador de volume
+function getCtx() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+  if (actx.state === 'suspended') actx.resume().catch(() => {});
+  return actx;
+}
+document.addEventListener('click', () => { if (actx && actx.state === 'suspended') actx.resume().catch(() => {}); });
+function watchVoice(id, stream) {
+  const ctx = getCtx(); if (!ctx) return;
+  try {
+    const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser();
+    an.fftSize = 512; src.connect(an);
+    meters.set(id, { an, buf: new Uint8Array(an.fftSize), src });
+  } catch (e) {}
+}
+function unwatchVoice(id) { const m = meters.get(id); if (m) { try { m.src.disconnect(); } catch (e) {} meters.delete(id); } }
+// borda verde em quem está falando
+setInterval(() => {
+  const talking = new Set();
+  meters.forEach((m, id) => {
+    m.an.getByteTimeDomainData(m.buf);
+    let sum = 0; for (let i = 0; i < m.buf.length; i++) { const v = (m.buf[i] - 128) / 128; sum += v * v; }
+    if (Math.sqrt(sum / m.buf.length) > 0.035) talking.add(id);
+  });
+  document.querySelectorAll('.av[data-uid]').forEach(a => a.classList.toggle('speaking', talking.has(a.dataset.uid)));
+  tiles.forEach(t => t.classList.toggle('talk', !!t.dataset.uid && talking.has(t.dataset.uid)));
+}, 120);
 
 function addAudio(id, s) {
   let a = audios.get(id);
   if (!a) { a = document.createElement('audio'); a.autoplay = true; document.body.appendChild(a); audios.set(id, a); }
   a.srcObject = s;
+  unwatchVoice(id); watchVoice(id, s);
   a.play().catch(() => { $('sound').style.display = 'block'; });
 }
-$('sound').onclick = () => { audios.forEach(a => a.play().catch(() => {})); $('sound').style.display = 'none'; };
+$('sound').onclick = () => { audios.forEach(a => a.play().catch(() => {})); if (ytPlayer && music[myRoom] && music[myRoom].kind === 'yt') ytPlayer.playVideo(); $('sound').style.display = 'none'; };
 
 /* ================= Meus dispositivos ================= */
 async function toggle(kind) {
@@ -497,7 +742,8 @@ async function toggle(kind) {
   s.getTracks().forEach(t => t.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); }));
   if (kind !== 'mic') addTile('me:' + kind, s, labelFor(myName + ' (você)', kind), true, kind);
   if (kind !== 'screen') loadDevices();
-  updateButtons(); sendState(); syncMedia(); renderNav();
+  if (kind === 'mic' && peer) watchVoice(peer.id, s);
+  updateButtons(); sendState(); syncMedia(); renderAll();
 }
 
 function stopLocal(kind) {
@@ -505,20 +751,131 @@ function stopLocal(kind) {
   if (s) s.getTracks().forEach(t => t.stop());
   outCalls.forEach((c, key) => { if (key.split(':')[1] === kind) { try { c.close(); } catch (e) {} outCalls.delete(key); } });
   removeTile('me:' + kind);
-  updateButtons(); sendState(); renderNav();
+  if (kind === 'mic' && peer) unwatchVoice(peer.id);
+  updateButtons(); sendState(); renderAll();
 }
 
 function updateButtons() {
-  $('micBtn').className = local.mic ? 'on' : '';
-  $('micBtn').textContent = local.mic ? 'Microfone ligado' : 'Microfone';
-  $('camBtn').className = local.cam ? 'on' : '';
-  $('camBtn').textContent = local.cam ? 'Câmera ligada' : 'Câmera';
-  $('screenBtn').className = local.screen ? 'live' : '';
-  $('screenBtn').textContent = local.screen ? 'Parar de compartilhar' : 'Compartilhar tela';
+  const set = (id, cls, icon, tip) => { const b = $(id); b.className = 'rb' + (cls ? ' ' + cls : ''); b.innerHTML = icon; b.dataset.tip = tip; };
+  set('camBtn', local.cam ? 'on' : '', local.cam ? ICON.cam : ICON.camOff, local.cam ? 'Desligar câmera' : 'Ligar câmera');
+  set('screenBtn', local.screen ? 'live' : '', ICON.screen, local.screen ? 'Parar de transmitir' : 'Compartilhar tela');
+  set('micBtn', local.mic ? 'on' : 'mut', local.mic ? ICON.mic : ICON.micOff, local.mic ? 'Desligar microfone' : 'Ligar microfone');
+  $('devBtn').innerHTML = ICON.gear;
+  $('micMini').innerHTML = local.mic ? ICON.mic : ICON.micOff;
+  $('micMini').className = 'ib' + (local.mic ? '' : ' off');
+  $('devMini').innerHTML = ICON.gear;
 }
 $('micBtn').onclick = () => toggle('mic');
+$('micMini').onclick = () => toggle('mic');
+$('devMini').onclick = e => $('devBtn').onclick(e);
 $('camBtn').onclick = () => toggle('cam');
 $('screenBtn').onclick = () => toggle('screen');
+
+/* ================= Música (tocada em sincronia em cada navegador da sala) ================= */
+function parseLink(t) {
+  let m = t.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/);
+  if (m) return { kind: 'yt', id: m[1], url: 'https://www.youtube.com/watch?v=' + m[1] };
+  m = t.match(/open\.spotify\.com\/(?:intl-[\w-]+\/)?track\/([A-Za-z0-9]{10,30})/) || t.match(/spotify:track:([A-Za-z0-9]{10,30})/);
+  if (m) return { kind: 'sp', id: m[1], url: 'https://open.spotify.com/track/' + m[1] };
+  if (/open\.spotify\.com\/(playlist|album)/.test(t)) return { err: 'Mande o link de uma música só, não de playlist ou álbum.' };
+  return null;
+}
+
+async function getTitle(url) {
+  try { const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent(url)); const j = await r.json(); return j.title || ''; } catch (e) { return ''; }
+}
+
+async function musicRequest(text) {
+  const t = text.trim();
+  if (/^!(pular|parar|skip|stop)\b/i.test(t)) return send({ t: 'music', action: 'skip' });
+  const link = parseLink(t);
+  if (link && link.err) return toast(link.err);
+  if (link) return send({ t: 'music', action: 'play', kind: link.kind, id: link.id, title: await getTitle(link.url) });
+  const q = t.match(/^!tocar\s+(.+)/i);
+  if (!q) return;
+  if (!YT_API_KEY) return toast('Para pedir pelo nome precisa da chave do YouTube. Por enquanto mande o link da música.');
+  try {
+    const r = await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=' + encodeURIComponent(q[1]) + '&key=' + YT_API_KEY);
+    const it = (await r.json()).items[0];
+    send({ t: 'music', action: 'play', kind: 'yt', id: it.id.videoId, title: it.snippet.title.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') });
+  } catch (e) { toast('Não encontrei essa música.'); }
+}
+
+let ytReady = null, ytPlayer = null, spReady = null, spCtl = null, playingKey = '', endSent = '';
+function loadScript(src) { const s = document.createElement('script'); s.src = src; document.head.appendChild(s); }
+function loadYT() { if (!ytReady) ytReady = new Promise(res => { window.onYouTubeIframeAPIReady = res; loadScript('https://www.youtube.com/iframe_api'); }); return ytReady; }
+function loadSP() { if (!spReady) spReady = new Promise(res => { window.onSpotifyIframeApiReady = res; loadScript('https://open.spotify.com/embed/iframe-api/v1'); }); return spReady; }
+const vol = () => Number($('npVol').value);
+const elapsed = c => Math.max(0, (hubNow() - c.startedAt) / 1000);
+
+function stopPlayers() {
+  try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch (e) {}
+  try { if (spCtl) spCtl.pause(); } catch (e) {}
+  $('ytBox').style.display = 'none'; $('spBox').style.display = 'none';
+}
+
+function renderNP(cur) {
+  const show = !!cur;
+  if (($('np').style.display === 'flex') !== show) { $('np').style.display = show ? 'flex' : 'none'; layout(); }
+  if (!cur) return;
+  $('npTitle').textContent = cur.title;
+  $('npBy').textContent = 'Pedido por ' + cur.by + (cur.kind === 'sp' ? ' · Spotify (sem login toca só 30s)' : ' · YouTube');
+  $('npVol').style.display = cur.kind === 'yt' ? '' : 'none';
+}
+
+function reportEnd() {
+  const cur = music[myRoom];
+  if (!cur || endSent === mkey(cur)) return;
+  // no Spotify só quem pediu avisa o fim (quem não tem login ouve só a prévia)
+  if (cur.kind === 'sp' && cur.byId !== (peer && peer.id)) return;
+  endSent = mkey(cur);
+  send({ t: 'music', action: 'end', key: endSent });
+}
+
+async function syncMusic() {
+  const cur = music[myRoom], key = mkey(cur);
+  renderNP(cur);
+  if (key === playingKey) return;
+  playingKey = key;
+  stopPlayers();
+  if (!cur) return;
+  if (cur.kind === 'yt') {
+    await loadYT(); if (playingKey !== key) return;
+    $('ytBox').style.display = 'block';
+    if (!ytPlayer) {
+      await new Promise(res => {
+        ytPlayer = new YT.Player('ytPlayer', {
+          width: 128, height: 72, videoId: cur.id,
+          playerVars: { autoplay: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, start: Math.floor(elapsed(cur)) },
+          events: {
+            onReady: e => { e.target.setVolume(vol()); e.target.seekTo(elapsed(cur), true); e.target.playVideo(); res(); },
+            onStateChange: e => { if (e.data === 0) reportEnd(); if (e.data === 1) $('sound').style.display = 'none'; },
+          },
+        });
+      });
+    } else {
+      ytPlayer.loadVideoById({ videoId: cur.id, startSeconds: elapsed(cur) });
+      ytPlayer.setVolume(vol());
+    }
+    setTimeout(() => { if (playingKey === key && ytPlayer.getPlayerState && ytPlayer.getPlayerState() !== 1) $('sound').style.display = 'block'; }, 3000);
+  } else {
+    const api = await loadSP(); if (playingKey !== key) return;
+    $('spBox').style.display = 'block';
+    const uri = 'spotify:track:' + cur.id;
+    const start = () => { try { spCtl.play(); const t = elapsed(cur); if (t > 2) setTimeout(() => spCtl.seek(t), 600); } catch (e) {} };
+    if (!spCtl) {
+      api.createController($('spPlayer'), { uri, width: '100%', height: 80 }, c => {
+        spCtl = c;
+        c.addListener('ready', start);
+        c.addListener('playback_update', e => { const p = e.data; if (p.duration > 0 && p.position >= p.duration - 1500) reportEnd(); });
+      });
+    } else { spCtl.loadUri(uri); setTimeout(start, 800); }
+  }
+}
+
+try { const v = localStorage.getItem('tela_vol'); if (v) $('npVol').value = v; } catch (e) {}
+$('npVol').oninput = () => { if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(vol()); try { localStorage.setItem('tela_vol', vol()); } catch (e) {} };
+$('npSkip').onclick = () => send({ t: 'music', action: 'skip' });
 
 /* ================= Escolher câmera e microfone ================= */
 const pref = { cam: '', mic: '' };
@@ -569,6 +926,7 @@ async function switchDevice(kind, deviceId) {
   newTrack.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); });
   old.getTracks().forEach(t => t.stop());
   if (kind === 'cam') { const t = tiles.get('me:cam'); if (t) t.querySelector('video').srcObject = s; }
+  if (kind === 'mic' && peer) { unwatchVoice(peer.id); watchVoice(peer.id, s); }
   toast((kind === 'cam' ? 'Câmera' : 'Microfone') + ' trocado.');
 }
 
@@ -584,12 +942,45 @@ const $grid = $('grid'), $strip = $('strip'), $empty = $('empty');
 
 function setLabel(t, txt) { const sp = t.querySelector('.bar span'); if (sp.textContent !== txt) sp.textContent = txt; }
 
+// quadros com o avatar de quem está na sala sem câmera (como numa chamada de voz)
+function syncParticipants() {
+  if (!peer) return;
+  const inRoom = myRoom ? [...members.values()].filter(m => m.room === myRoom) : [];
+  if (myRoom && !inRoom.some(m => m.id === peer.id)) inRoom.unshift({ id: peer.id, name: myName });
+  const want = new Set();
+  inRoom.forEach(m => {
+    const isMe = m.id === peer.id;
+    const st = isMe ? { cam: !!local.cam, mic: !!local.mic } : m;
+    if (st.cam) return;
+    const key = 'p:' + m.id; want.add(key);
+    let t = tiles.get(key);
+    const name = isMe ? myName + ' (você)' : m.name;
+    const photo = isMe ? myAvatar : avatars.get(m.id);
+    const sig = name + '|' + (photo ? photo.length : 0) + '|' + st.mic;
+    if (t && t.dataset.sig === sig) return;
+    if (!t) {
+      t = document.createElement('div'); t.className = 'tile ptile'; t.dataset.id = key; t.dataset.uid = m.id;
+      t.addEventListener('click', () => { focusId = (focusId === key) ? null : key; layout(); });
+      tiles.set(key, t); $grid.insertBefore(t, $strip);
+    }
+    t.dataset.sig = sig;
+    t.innerHTML = '<div class="pav"></div><div class="bar"><span></span></div>';
+    t.querySelector('.pav').appendChild(avatarEl(m.id, isMe ? myName : m.name, 0, photo));
+    const sp = t.querySelector('.bar span');
+    if (!st.mic) sp.innerHTML = ICON.micOff;
+    sp.append(name);
+  });
+  [...tiles.keys()].forEach(k => { if (k.startsWith('p:') && !want.has(k)) { tiles.get(k).remove(); tiles.delete(k); } });
+  layout();
+}
+
 function addTile(key, stream, label, mine, kind) {
   let t = tiles.get(key);
   if (t) { t.querySelector('video').srcObject = stream; setLabel(t, label); return; }
   t = document.createElement('div');
   t.className = 'tile' + (kind === 'cam' ? ' cam' : '') + (mine && kind === 'cam' ? ' mirror' : '');
   t.dataset.id = key;
+  if (kind === 'cam') t.dataset.uid = mine ? (peer ? peer.id : '') : key.split(':')[0];
   t.innerHTML = '<video autoplay playsinline muted></video><div class="bar"><span></span><div>' +
     (!mine && kind === 'screen' ? '<button data-a="som">Ativar som</button>' : '') +
     '<button data-a="full">Tela cheia</button></div></div>';
@@ -611,7 +1002,7 @@ function addTile(key, stream, label, mine, kind) {
 function removeTile(key) {
   const t = tiles.get(key);
   if (!t) return;
-  t.querySelector('video').srcObject = null;
+  const v = t.querySelector('video'); if (v) v.srcObject = null;
   t.remove(); tiles.delete(key);
   layout();
 }
@@ -644,7 +1035,7 @@ function layout() {
     $grid.style.gridTemplateColumns = `repeat(${best}, minmax(0,1fr))`;
     $grid.style.gridTemplateRows = `repeat(${Math.ceil(n / best)}, minmax(0,1fr))`;
   }
-  list.forEach(t => { const v = t.querySelector('video'); if (v.paused) v.play().catch(() => {}); });
+  list.forEach(t => { const v = t.querySelector('video'); if (v && v.paused) v.play().catch(() => {}); });
 }
 window.addEventListener('resize', layout);
 
@@ -653,49 +1044,97 @@ const countIn = room => [...members.values()].filter(m => m.room === room).lengt
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
+function memberLine(m, size) {
+  const isMe = peer && m.id === peer.id;
+  const st = isMe ? { screen: !!local.screen, cam: !!local.cam, mic: !!local.mic } : m;
+  const line = el('div');
+  line.appendChild(avatarEl(m.id, isMe ? myName : m.name, size, isMe ? myAvatar : undefined));
+  line.appendChild(el('span', 'n', isMe ? myName : m.name));
+  if (st.screen) line.appendChild(el('span', 'st live', 'AO VIVO'));
+  if (st.cam) { const i = el('span'); i.innerHTML = ICON.cam; line.appendChild(i.firstChild); }
+  if (!st.mic) { const i = el('span'); i.innerHTML = ICON.micOff; i.firstChild.classList.add('off'); line.appendChild(i.firstChild); }
+  return line;
+}
+
 function renderNav() {
   const nav = $('nav');
   nav.innerHTML = '';
-  nav.appendChild(el('div', 'sec', 'Salas de vídeo'));
-  ROOMS.forEach(r => {
-    const n = countIn(r.id);
-    const full = r.max && n >= r.max && myRoom !== r.id;
-    const row = el('div', 'ch' + (myRoom === r.id ? ' active' : '') + (full ? ' full' : ''));
-    row.appendChild(el('span', 'ico', r.max ? '🔒' : '🔊'));
-    row.appendChild(el('span', 'nm', r.name));
-    row.appendChild(el('span', 'tag', r.max ? n + '/' + r.max : (n ? String(n) : '')));
-    row.onclick = () => joinRoom(r.id);
-    nav.appendChild(row);
-    const who = el('div', 'who');
-    [...members.values()].filter(m => m.room === r.id).forEach(m => {
-      const isMe = peer && m.id === peer.id;
-      const line = el('div');
-      line.appendChild(el('span', null, m.name + (isMe ? ' (você)' : '')));
-      const st = isMe ? local : m;
-      if (st.screen) line.appendChild(el('span', 'st live', 'AO VIVO'));
-      if (st.cam) line.appendChild(el('span', 'st', 'cam'));
-      if (st.mic) line.appendChild(el('span', 'st', 'mic'));
-      who.appendChild(line);
-    });
-    if (who.children.length) nav.appendChild(who);
-  });
-  nav.appendChild(el('div', 'sec', 'Chats'));
+  nav.appendChild(el('div', 'sec', 'Canais de texto'));
   CHATS.forEach(c => {
     const row = el('div', 'ch' + (curChat === c.id ? ' active' : ''));
-    row.appendChild(el('span', 'ico', '#'));
-    row.appendChild(el('span', 'nm', c.name));
+    row.appendChild(el('span', 'ico', c.id === 'musica' ? '♪' : '#'));
+    row.appendChild(el('span', 'nm', c.id === 'musica' ? 'pedir-música' : c.name.toLowerCase().replace(' ', '-')));
     if (unread[c.id]) row.appendChild(el('span', 'badge', String(unread[c.id])));
     row.onclick = () => selectChat(c.id);
     nav.appendChild(row);
   });
-  $('online').textContent = members.size ? members.size + ' online' : 'Conectando...';
+  nav.appendChild(el('div', 'sec', 'Canais de voz'));
+  ROOMS.forEach(r => {
+    const n = countIn(r.id);
+    const full = r.max && n >= r.max && myRoom !== r.id;
+    const row = el('div', 'ch' + (myRoom === r.id ? ' active' : '') + (full ? ' full' : ''));
+    const ico = el('span', 'ico'); ico.innerHTML = r.max ? ICON.lock : ICON.speaker; row.appendChild(ico);
+    row.appendChild(el('span', 'nm', r.name));
+    if (r.max) row.appendChild(el('span', 'tag', n + '/' + r.max));
+    row.onclick = () => joinRoom(r.id);
+    nav.appendChild(row);
+    const who = el('div', 'who');
+    [...members.values()].filter(m => m.room === r.id).forEach(m => who.appendChild(memberLine(m, 26)));
+    if (music[r.id]) {
+      const line = el('div');
+      line.appendChild(avatarEl('bot', BOT, 26, ''));
+      line.appendChild(el('span', 'n', BOT));
+      line.appendChild(el('span', 'st', music[r.id].title));
+      who.appendChild(line);
+    }
+    if (who.children.length) nav.appendChild(who);
+  });
+  $('online').textContent = members.size ? members.size + ' em salas' : '...';
+  $('voiceRoom').textContent = myRoom ? ROOMS.find(r => r.id === myRoom).name : 'Nenhuma sala';
+  $('voice').querySelector('b').textContent = myRoom ? 'Voz conectada' : 'Fora das salas';
+  renderPicker();
+}
+
+function renderPicker() {
+  const pk = $('picker');
+  pk.classList.toggle('open', !myRoom);
+  if (myRoom) return;
+  const list = $('pickList');
+  list.innerHTML = '';
+  ROOMS.forEach(r => {
+    const ppl = [...members.values()].filter(m => m.room === r.id);
+    const full = r.max && ppl.length >= r.max;
+    const card = el('div', 'room' + (full ? ' full' : ''));
+    const h = el('div', 'rh');
+    const ic = el('i'); ic.innerHTML = r.max ? ICON.lock : ICON.speaker; h.appendChild(ic.firstChild);
+    h.appendChild(el('span', null, r.name));
+    h.appendChild(el('small', null, r.max ? (full ? 'Cheia ' : '') + ppl.length + '/' + r.max : ppl.length + (ppl.length === 1 ? ' pessoa' : ' pessoas')));
+    card.appendChild(h);
+    const box = el('div', 'ppl');
+    if (!ppl.length) box.appendChild(el('span', 'vazia', 'Ninguém aqui ainda'));
+    ppl.forEach(m => { const d = el('div'); d.appendChild(avatarEl(m.id, m.name, 26)); d.append(m.name); box.appendChild(d); });
+    card.appendChild(box);
+    card.onclick = () => joinRoom(r.id);
+    list.appendChild(card);
+  });
+}
+
+function renderMe() {
+  const old = $('meAvatar');
+  const a = avatarEl(peer ? peer.id : 'me', myName, 32, myAvatar);
+  a.id = 'meAvatar'; a.title = 'Trocar foto de perfil';
+  a.onclick = () => $('avatarFile').click();
+  old.replaceWith(a);
+  $('meName').textContent = myName;
 }
 
 function renderTop() {
   const r = ROOMS.find(r => r.id === myRoom);
-  $('roomTitle').textContent = (r.max ? '🔒 ' : '') + r.name;
+  if (!r) { $('roomIco').innerHTML = ICON.speaker; $('roomTitle').textContent = 'Escolha uma sala'; $('roomInfo').textContent = statusText || ''; return; }
+  $('roomIco').innerHTML = r.max ? ICON.lock : ICON.speaker;
+  $('roomTitle').textContent = r.name;
   const n = countIn(myRoom);
-  $('roomInfo').textContent = statusText || ((n || 1) + (n === 1 || !n ? ' pessoa' : ' pessoas') + ' nesta sala' + (r.max ? ' (máximo 2)' : '') + ' · clique numa tela para destacar');
+  $('roomInfo').textContent = statusText || ((n || 1) + (n === 1 || !n ? ' pessoa' : ' pessoas') + (r.max ? ' (máximo 2)' : '') + ' · clique num quadro para destacar');
 }
 
 function renderTabs() {
@@ -719,16 +1158,27 @@ function appendMsg(m) {
   const box = $('msgs');
   const sys = box.querySelector('.sys'); if (sys) sys.remove();
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
-  const d = el('div', 'msg');
-  const h = el('div', 'h'); h.appendChild(el('b', null, m.name)); h.append(fmtTime(m.ts));
-  d.appendChild(h); d.appendChild(el('div', 'b', m.text));
+  const who = m.uid || m.name;
+  const cont = box.dataset.last === who && m.ts - Number(box.dataset.lastTs || 0) < 5 * 60000;
+  box.dataset.last = who; box.dataset.lastTs = m.ts;
+  const d = el('div', 'msg' + (m.bot ? ' bot' : '') + (cont ? ' cont' : ''));
+  const isMe = peer && m.uid === peer.id;
+  d.appendChild(avatarEl(m.uid || '', m.name, 0, isMe ? myAvatar : undefined));
+  const c = el('div', 'c');
+  const h = el('div', 'h'); h.appendChild(el('b', null, m.name));
+  if (m.bot) h.appendChild(el('span', 'botag', 'BOT'));
+  h.append(fmtTime(m.ts));
+  c.appendChild(h); c.appendChild(el('div', 'b', m.text));
+  d.appendChild(c);
   box.appendChild(d);
-  if (atBottom || m.name === myName) box.scrollTop = box.scrollHeight;
+  if (atBottom || isMe) box.scrollTop = box.scrollHeight;
 }
 
 function renderChat() {
   const box = $('msgs');
   box.innerHTML = '';
+  box.dataset.last = '';
+  $('chatInput').placeholder = curChat === 'musica' ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar em ' + CHATS.find(c => c.id === curChat).name;
   const arr = chats[curChat];
   if (!arr.length) box.appendChild(el('div', 'sys', 'Nenhuma mensagem ainda no ' + CHATS.find(c => c.id === curChat).name + '.'));
   arr.forEach(appendMsg);
@@ -752,9 +1202,10 @@ $('chatForm').onsubmit = e => {
   if (!hubConn || !hubConn.open) return toast('Ainda conectando, tente em instantes.');
   send({ t: 'msg', ch: curChat, text });
   $('chatInput').value = '';
+  if (curChat === 'musica') musicRequest(text);
 };
 
-function renderAll() { renderNav(); renderTop(); renderTabs(); }
+function renderAll() { renderNav(); renderTop(); renderTabs(); syncParticipants(); }
 
 /* ================= Outros botões ================= */
 $('sideBtn').onclick = () => $('side').classList.toggle('open');
@@ -765,7 +1216,16 @@ $('copyBtn').onclick = async e => {
   catch { prompt('Copie o link:', url); }
   setTimeout(() => e.target.textContent = 'Copiar link', 1800);
 };
-$('meCard').onclick = () => {
+$('avatarFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try { myAvatar = await resizeImage(f); } catch (x) { return toast('Não consegui abrir essa imagem.'); }
+  try { localStorage.setItem('tela_avatar', myAvatar); } catch (x) {}
+  send({ t: 'avatar', data: myAvatar });
+  renderMe(); renderAll(); renderChat();
+  toast('Foto de perfil atualizada.');
+};
+$('meInfo').onclick = () => {
   const n = clean(prompt('Seu nome:', myName));
   if (!n || n === myName) return;
   if ((local.screen || local.cam || local.mic) && !confirm('Para trocar o nome a página recarrega e sua câmera, microfone e tela desligam. Continuar?')) return;
