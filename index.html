@@ -594,6 +594,7 @@
     </div>
     <div class="tools">
       <button class="ib" id="micMini" title="Microfone"></button>
+      <button class="ib" id="deafMini" title="Silenciar a chamada"></button>
       <button class="ib" id="devMini" title="Escolher câmera e microfone"></button>
       <button class="ib" id="reportMini" title="Denunciar uma conta"></button>
     </div>
@@ -630,6 +631,7 @@
       <button class="rb" id="camBtn"></button>
       <button class="rb" id="screenBtn"></button>
       <button class="rb" id="micBtn"></button>
+      <button class="rb" id="deafBtn"></button>
       <button class="rb" id="devBtn" data-tip="Dispositivos"></button>
       <button class="rb leave" id="leaveBtn" data-tip="Sair da sala"></button>
       <div id="devPanel">
@@ -685,6 +687,8 @@ const ICON = {
   gear: '<svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
   speaker: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  head: '<svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/></svg>',
+  headOff: '<svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/><path d="M3 3l18 18" stroke="#f23f43"/></svg>',
   leave: '<svg viewBox="0 0 24 24"><path d="M3 15c5-5 13-5 18 0l-2.5 2.5-3-1.5v-2.5a10 10 0 0 0-5 0V16l-3 1.5z"/></svg>',
   flag: '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
   friends: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>',
@@ -765,6 +769,7 @@ function badgeImgs(p, size) {
 
 /* ===================== Perfis ===================== */
 let me = null, myProfile = null, isAdmin = false, isGuest = false;
+let deaf = false, micBeforeDeaf = false; // chamada silenciada
 const profiles = new Map();
 const dn = uid => { const p = profiles.get(uid); return p ? (p.display_name || p.username) : 'Usuário'; };
 async function ensureProfiles(ids) {
@@ -1209,7 +1214,7 @@ function dropPresence(sid) {
   onPresence();
 }
 async function trackOne(sid, entry) {
-  try { await entry.ch.track({ uid: me, peer: peerId, room: sid === voiceServer ? myRoom : null, seq: mySeq, screen: !!local.screen, cam: !!local.cam, mic: !!local.mic }); } catch (e) {}
+  try { await entry.ch.track({ uid: me, peer: peerId, room: sid === voiceServer ? myRoom : null, seq: mySeq, screen: !!local.screen, cam: !!local.cam, mic: !!local.mic, deaf }); } catch (e) {}
 }
 async function trackMe() { for (const [sid, e] of pres) await trackOne(sid, e); }
 // junta quem está em cada sala de todos os servidores abertos (salas têm ids únicos)
@@ -1218,7 +1223,7 @@ async function onPresence() {
   pres.forEach(({ ch }) => {
     Object.values(ch.presenceState()).forEach(arr => {
       const m = arr[arr.length - 1]; if (!m || !m.peer) return;
-      if (!next.has(m.peer) || m.room) next.set(m.peer, { id: m.peer, uid: m.uid, room: m.room, seq: m.seq, screen: m.screen, cam: m.cam, mic: m.mic });
+      if (!next.has(m.peer) || m.room) next.set(m.peer, { id: m.peer, uid: m.uid, room: m.room, seq: m.seq, screen: m.screen, cam: m.cam, mic: m.mic, deaf: !!m.deaf });
     });
   });
   members = next;
@@ -1339,6 +1344,7 @@ setInterval(() => {
 function addAudio(id, s) {
   let a = audios.get(id);
   if (!a) { a = document.createElement('audio'); a.autoplay = true; document.body.appendChild(a); audios.set(id, a); }
+  a.muted = deaf;
   a.srcObject = s;
   unwatchVoice(id); watchVoice(id, s);
   a.play().catch(() => { $('sound').style.display = 'block'; });
@@ -1454,6 +1460,20 @@ async function toggle(kind) {
   if (kind === 'mic') watchVoice(peerId, s); else if (kind === 'cam') loadDevices();
   trackMe(); syncMedia(); renderAll();
 }
+// silenciar a chamada: para de ouvir todo mundo (e a música) e desliga o microfone, sem sair da sala
+function applyDeaf() {
+  audios.forEach(a => { a.muted = deaf; });
+  tiles.forEach(t => { const v = t.querySelector('video'); if (v && t.querySelector('[data-a="som"]')) v.muted = deaf || !t.wantSound; });
+  try { if (ytPlayer && ytPlayer.mute) { if (deaf) ytPlayer.mute(); else ytPlayer.unMute(); } } catch (e) {}
+  try { if (spCtl) { if (deaf) spCtl.pause(); else spCtl.resume(); } } catch (e) {}
+}
+async function toggleDeaf() {
+  deaf = !deaf;
+  if (deaf) { micBeforeDeaf = !!local.mic; if (local.mic) stopLocal('mic', true); }
+  applyDeaf(); trackMe(); renderAll();
+  if (!deaf && micBeforeDeaf && myRoom && !local.mic) await toggle('mic');
+  toast(deaf ? 'Chamada silenciada: você não ouve ninguém e seu microfone está desligado.' : 'Você voltou a ouvir a chamada.');
+}
 function stopLocal(kind, quiet) {
   const s = local[kind]; local[kind] = null;
   if (s) s.getTracks().forEach(t => t.stop());
@@ -1468,13 +1488,17 @@ function updateButtons() {
   set('camBtn', local.cam ? 'on' : '', local.cam ? ICON.cam : ICON.camOff, local.cam ? 'Desligar câmera' : 'Ligar câmera', 'Câmera');
   set('screenBtn', local.screen ? 'live' : '', ICON.screen, local.screen ? 'Parar de transmitir' : 'Compartilhar tela', local.screen ? 'Ao vivo' : 'Tela');
   set('micBtn', local.mic ? 'on' : 'mut', local.mic ? ICON.mic : ICON.micOff, local.mic ? 'Desligar microfone' : 'Ligar microfone', 'Microfone');
+  set('deafBtn', deaf ? 'mut' : '', deaf ? ICON.headOff : ICON.head, deaf ? 'Voltar a ouvir a chamada' : 'Silenciar a chamada (não ouvir ninguém, sem sair)', deaf ? 'Sem som' : 'Som');
+  $('deafMini').innerHTML = deaf ? ICON.headOff : ICON.head; $('deafMini').className = 'ib' + (deaf ? ' off' : ''); $('deafMini').title = deaf ? 'Voltar a ouvir a chamada' : 'Silenciar a chamada';
   $('devBtn').innerHTML = ICON.gear + '<span class="lb">Ajustes</span>'; $('leaveBtn').innerHTML = ICON.leave + '<span class="lb">Sair</span>';
   $('micMini').innerHTML = local.mic ? ICON.mic : ICON.micOff; $('micMini').className = 'ib' + (local.mic ? '' : ' off');
   $('devMini').innerHTML = ICON.gear; $('reportMini').innerHTML = ICON.flag; $('leaveMini').innerHTML = ICON.leave;
   $('leaveBtn').style.display = myRoom ? '' : 'none';
 }
-$('micBtn').onclick = () => toggle('mic');
-$('micMini').onclick = () => toggle('mic');
+$('micBtn').onclick = () => { if (deaf) { micBeforeDeaf = true; return toggleDeaf(); } toggle('mic'); };
+$('micMini').onclick = () => { if (deaf) { micBeforeDeaf = true; return toggleDeaf(); } toggle('mic'); };
+$('deafBtn').onclick = () => toggleDeaf();
+$('deafMini').onclick = () => toggleDeaf();
 $('camBtn').onclick = () => toggle('cam');
 $('screenBtn').onclick = () => toggle('screen');
 $('leaveBtn').onclick = leaveVoice;
@@ -1552,7 +1576,7 @@ function addTile(key, stream, label, mine, kind, speak) {
   const full = () => (t.requestFullscreen || t.webkitRequestFullscreen).call(t);
   t.querySelector('[data-a="full"]').onclick = full; v.ondblclick = full;
   const som = t.querySelector('[data-a="som"]');
-  if (som) som.onclick = () => { v.muted = !v.muted; som.textContent = v.muted ? 'Ativar som' : 'Silenciar'; v.play(); };
+  if (som) som.onclick = () => { t.wantSound = !t.wantSound; v.muted = deaf || !t.wantSound; som.textContent = t.wantSound ? 'Silenciar' : 'Ativar som'; v.play(); if (deaf && t.wantSound) toast('A chamada está silenciada. Clique no fone para voltar a ouvir.'); };
   t.querySelectorAll('button').forEach(b => b.addEventListener('click', ev => ev.stopPropagation()));
   t.addEventListener('click', () => { focusId = (focusId === key) ? null : key; layout(); });
   tiles.set(key, t); $grid.insertBefore(t, $strip); layout();
@@ -1627,13 +1651,14 @@ function showMode() {
 }
 function memberLine(m) {
   const isMe = m.id === peerId;
-  const st = isMe ? { screen: !!local.screen, cam: !!local.cam, mic: !!local.mic } : m;
+  const st = isMe ? { screen: !!local.screen, cam: !!local.cam, mic: !!local.mic, deaf } : m;
   const line = el('div');
   line.appendChild(avatarEl(m.uid, 26, m.id));
   line.appendChild(el('span', 'n', dn(m.uid)));
   if (st.screen) line.appendChild(el('span', 'st live', 'AO VIVO'));
   if (st.cam) line.appendChild(iconEl('cam'));
-  if (!st.mic) { const i = iconEl('micOff'); i.classList.add('off'); line.appendChild(i); }
+  if (st.deaf) { const i = iconEl('headOff'); i.classList.add('off'); i.title = 'Com a chamada silenciada'; line.appendChild(i); }
+  else if (!st.mic) { const i = iconEl('micOff'); i.classList.add('off'); line.appendChild(i); }
   line.onclick = e => { e.stopPropagation(); showCard(m.uid, e); };
   return line;
 }
@@ -2406,7 +2431,7 @@ async function syncMusic() {
           width: 128, height: 72, videoId: cur.media_id,
           playerVars: { autoplay: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, start: Math.floor(elapsed(cur)) },
           events: {
-            onReady: e => { e.target.setVolume(vol()); e.target.seekTo(elapsed(cur), true); e.target.playVideo(); res(); },
+            onReady: e => { e.target.setVolume(vol()); if (deaf) e.target.mute(); e.target.seekTo(elapsed(cur), true); e.target.playVideo(); res(); },
             onStateChange: e => { if (e.data === 0) reportEnd(); if (e.data === 1) $('sound').style.display = 'none'; $('ytBox').classList.toggle('paused', e.data !== 1); },
           },
         });
@@ -2417,7 +2442,7 @@ async function syncMusic() {
     const api = await loadSP(); if (playingKey !== key) return;
     $('spBox').style.display = 'block';
     const uri = 'spotify:track:' + cur.media_id;
-    const start = () => { try { spCtl.play(); const t = elapsed(cur); if (t > 2) setTimeout(() => spCtl.seek(t), 600); } catch (e) {} };
+    const start = () => { if (deaf) return; try { spCtl.play(); const t = elapsed(cur); if (t > 2) setTimeout(() => spCtl.seek(t), 600); } catch (e) {} };
     if (!spCtl) api.createController($('spPlayer'), { uri, width: '100%', height: 80 }, c => { spCtl = c; c.addListener('ready', start); c.addListener('playback_update', e => { const p = e.data; if (p.duration > 0 && p.position >= p.duration - 1500) reportEnd(); }); });
     else { spCtl.loadUri(uri); setTimeout(start, 800); }
   }
