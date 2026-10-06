@@ -650,7 +650,7 @@ async function startApp(session) {
 
 /* ===================== Servidores ===================== */
 async function loadServers() {
-  const { data } = await sb.from('server_members').select('server_id, servers(id,name,owner_id,is_public,invite_code)').eq('user_id', me);
+  const { data } = await sb.from('server_members').select('server_id, servers(id,name,owner_id,is_public,invite_code,icon)').eq('user_id', me);
   servers = (data || []).map(r => r.servers).filter(Boolean).sort((a, b) => (b.is_public - a.is_public) || a.name.localeCompare(b.name));
   renderServerMenu(); renderRail();
 }
@@ -662,7 +662,7 @@ function renderServerMenu() {
   m.appendChild(el('div', 'mlab', 'Seus servidores'));
   servers.forEach(s => {
     const it = el('div', 'mi' + (mode === 'server' && s.id === curServer ? ' cur' : ''));
-    const si = el('div', 'si', s.name.slice(0, 2).toUpperCase()); si.style.background = s.is_public ? 'var(--acc)' : colorOf(s.id);
+    const si = el('div', 'si'); paintServerIcon(si, s, true);
     it.appendChild(si); it.append(s.name);
     it.onclick = () => { closeMenu(); openServer(s.id); };
     m.appendChild(it);
@@ -678,6 +678,7 @@ function renderServerMenu() {
     m.appendChild(el('div', 'msep'));
     add('friends', 'Membros de ' + s.name, membersDialog);
     if (s.owner_id === me) { add('link', 'Convidar pessoas', inviteDialog); add('gear', 'Configurações do servidor', serverSettings); }
+    else if (s.is_public && isAdmin) add('gear', 'Trocar foto do ' + s.name, () => serverIconDialog(s));
     else if (!s.is_public) add('leave', 'Sair do servidor', leaveServer, 'red');
   }
   if (isAdmin) { m.appendChild(el('div', 'msep')); add('shield', 'Painel de administração', adminPanel); }
@@ -685,6 +686,34 @@ function renderServerMenu() {
 function closeMenu() { $('srvMenu').classList.remove('open'); }
 $('srvBtn').onclick = e => { e.stopPropagation(); renderServerMenu(); $('srvMenu').classList.toggle('open'); };
 $('srvMenu').onclick = e => e.stopPropagation();
+
+// foto do servidor (ou as iniciais do nome)
+const initials = s => s.is_public ? 'xc' : s.name.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+function paintServerIcon(ic, s, solid) {
+  if (s.icon) { ic.textContent = ''; ic.style.backgroundImage = 'url("' + s.icon + '")'; ic.style.backgroundColor = 'transparent'; return; }
+  ic.style.backgroundImage = ''; ic.textContent = initials(s);
+  ic.style.background = s.is_public ? (solid ? 'var(--acc)' : '') : (solid ? colorOf(s.id) : colorOf(s.id) + '33');
+}
+function serverIconDialog(s) {
+  let icon = s.icon || '';
+  const prev = el('div', 'ri'); prev.style.cssText = 'width:96px;height:96px;margin:0 auto';
+  const pic = el('div', 'ic'); pic.style.cssText = 'width:96px;height:96px;border-radius:28px;font-size:30px'; prev.appendChild(pic);
+  const draw = () => paintServerIcon(pic, Object.assign({}, s, { icon }), true);
+  draw();
+  const f = el('input'); f.type = 'file'; f.accept = 'image/*'; f.hidden = true;
+  f.onchange = async () => { const x = f.files[0]; if (!x) return; try { icon = await squareDataUrl(x, 192); draw(); } catch (e) { toast('Não consegui abrir essa imagem.'); } };
+  const pick = el('button', null, 'Escolher foto'); pick.onclick = () => f.click();
+  const rm = el('button', null, 'Remover foto'); rm.onclick = () => { icon = ''; draw(); };
+  const row = el('div', 'copyrow'); row.style.justifyContent = 'center'; row.append(pick, rm, f);
+  openModal('Foto do servidor ' + s.name, [prev, row, el('div', 'hint', 'Use uma imagem quadrada. Ela aparece na coluna da esquerda para todos os membros.')], [
+    ['Cancelar', closeModal],
+    ['Salvar', async () => {
+      const { error } = await sb.rpc('set_server_icon', { p_server: s.id, p_icon: icon });
+      if (error) return toast('Não consegui salvar: ' + error.message);
+      s.icon = icon; closeModal(); await loadServers(); renderAll(); toast('Foto do servidor salva.');
+    }, 'primary'],
+  ]);
+}
 
 async function openServer(sid) {
   if (!servers.some(s => s.id === sid)) sid = PUBLIC_ID;
@@ -823,7 +852,9 @@ async function serverSettings() {
     if (t !== s.name) return;
     await sb.from('servers').delete().eq('id', s.id); closeModal(); await loadServers(); openServer(PUBLIC_ID);
   };
+  const iconBtn = el('button', null, 'Trocar foto do servidor'); iconBtn.onclick = () => serverIconDialog(s);
   openModal('Configurações do servidor', [
+    el('div', 'lbl', 'Foto'), iconBtn,
     el('div', 'lbl', 'Nome'), nameRow,
     el('div', 'lbl', 'Link de convite'), linkRow,
     el('div', 'lbl', 'Canais (voz + chat)'), chList, addRow,
@@ -1238,10 +1269,7 @@ function renderRail() {
   r.appendChild(el('div', 'rsep'));
   servers.forEach(s => {
     const on = mode === 'server' && s.id === curServer;
-    item(s.name, on, ic => {
-      ic.textContent = s.is_public ? 'xc' : s.name.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
-      if (!on) ic.style.background = s.is_public ? 'var(--bg)' : colorOf(s.id) + '33';
-    }, () => openServer(s.id));
+    item(s.name, on, ic => paintServerIcon(ic, s, on), () => openServer(s.id));
   });
   r.appendChild(el('div', 'rsep'));
   if (!ownsServer()) item('Criar meu servidor', false, ic => ic.innerHTML = ICON.plus, createServerDialog, 'green');
