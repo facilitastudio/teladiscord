@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tela Compartilhada</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  :root{--bg:#0d0d0f;--card:#17171b;--line:#2a2a31;--txt:#f2f2f4;--mut:#8b8b96;--acc:#5b7cff;--red:#ff4d5e}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .brand{font-weight:700;font-size:18px}
+  .brand small{display:block;font-weight:400;font-size:12px;color:var(--mut);margin-top:2px}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  button{border:0;border-radius:10px;padding:10px 16px;font:600 14px system-ui;cursor:pointer;color:var(--txt);background:var(--card);border:1px solid var(--line)}
+  button:hover{border-color:#44444f}
+  button.primary{background:var(--acc);border-color:var(--acc)}
+  button.stop{background:var(--red);border-color:var(--red)}
+  .pill{font-size:13px;color:var(--mut);padding:8px 12px;border:1px solid var(--line);border-radius:999px}
+  .pill b{color:var(--txt)}
+  #status{font-size:13px;color:var(--mut);padding:10px 20px}
+  #grid{display:grid;gap:14px;padding:6px 20px 24px;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))}
+  .tile{position:relative;background:#000;border:1px solid var(--line);border-radius:14px;overflow:hidden;aspect-ratio:16/9}
+  .tile video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+  .tile .bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:6px;align-items:center;justify-content:space-between;padding:8px;background:linear-gradient(transparent,rgba(0,0,0,.75))}
+  .tile .bar span{font-size:13px;font-weight:600;padding-left:4px}
+  .tile .bar div{display:flex;gap:6px}
+  .tile .bar button{padding:6px 10px;font-size:12px;background:rgba(20,20,24,.85)}
+  #empty{grid-column:1/-1;text-align:center;color:var(--mut);padding:80px 20px;border:1px dashed var(--line);border-radius:14px}
+  #empty b{display:block;color:var(--txt);font-size:18px;margin-bottom:6px}
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+  #gate form{width:100%;max-width:360px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:14px}
+  #gate h1{font-size:20px}
+  #gate p{font-size:14px;color:var(--mut)}
+  #gate input{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--txt);font:16px system-ui;outline:none}
+  #gate input:focus{border-color:var(--acc)}
+  #gateErr{color:var(--red);font-size:13px;min-height:16px}
+  .app{display:none}
+</style>
+</head>
+<body>
+<div id="gate">
+  <form id="gateForm" autocomplete="off">
+    <h1>Tela Compartilhada</h1>
+    <p>Digite o código de acesso para entrar na sala.</p>
+    <input id="gateInput" type="password" placeholder="Código de acesso" autofocus>
+    <div id="gateErr"></div>
+    <button class="primary" type="submit">Entrar</button>
+  </form>
+</div>
+<header class="app">
+  <div class="brand">Tela Compartilhada<small>Sala principal</small></div>
+  <div class="actions">
+    <span class="pill"><b id="count">1</b> na sala</span>
+    <button id="copyBtn">Copiar link</button>
+    <button id="shareBtn" class="primary">Compartilhar minha tela</button>
+  </div>
+</header>
+<div id="status" class="app">Conectando...</div>
+<main id="grid" class="app">
+  <div id="empty"><b>Ninguém está compartilhando ainda</b>Quem entrar com o código aparece aqui. Clique em "Compartilhar minha tela" para mostrar a sua.</div>
+</main>
+
+<script>
+// Só o hash do código fica no código-fonte. O ID da sala também é derivado do código,
+// então sem saber o código não dá para descobrir a sala.
+const ACCESS_HASH = '0f9dbab494594994c643ed8220cec23a90eb30fb75cc02001d1079748e6fd542';
+const PREFIX = 'jktela-';
+let code = '';
+
+async function sha256(txt) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function tryEnter(pass) {
+  pass = (pass || '').trim().toLowerCase();
+  if (!pass || await sha256(pass) !== ACCESS_HASH) return false;
+  code = (await sha256(pass + '|sala-principal')).slice(0, 24);
+  try { localStorage.setItem('tela_acesso', pass); } catch (e) {}
+  document.getElementById('gate').remove();
+  document.querySelectorAll('.app').forEach(el => el.style.display = el.tagName === 'HEADER' ? 'flex' : (el.id === 'grid' ? 'grid' : 'block'));
+  start();
+  return true;
+}
+
+document.getElementById('gateForm').onsubmit = async e => {
+  e.preventDefault();
+  const ok = await tryEnter(document.getElementById('gateInput').value);
+  if (!ok) document.getElementById('gateErr').textContent = 'Código incorreto.';
+};
+// entra direto se o código já foi digitado antes neste navegador
+(async () => { let saved = null; try { saved = localStorage.getItem('tela_acesso'); } catch (e) {} if (saved) tryEnter(saved); })();
+
+const $status = document.getElementById('status');
+const $grid = document.getElementById('grid');
+const $empty = document.getElementById('empty');
+const $count = document.getElementById('count');
+const $shareBtn = document.getElementById('shareBtn');
+
+let peer = null, isHub = false, hubConn = null;
+const hubConns = new Map();   // só o anfitrião usa: id -> conexão
+let others = [];              // ids das outras pessoas na sala
+let myStream = null;
+const outCalls = new Map();   // chamadas que eu fiz com a minha tela
+const tiles = new Map();      // id -> elemento do vídeo
+
+const setStatus = t => $status.textContent = t;
+
+/* ---------- Conexão ---------- */
+function start() {
+  // tenta virar o anfitrião da sala; se já existir, entra como convidado
+  const p = new Peer(PREFIX + code);
+  p.on('open', () => { peer = p; isHub = true; wire(); setStatus('Você está na sala. Mande o link e o código para quem quiser.'); updateMembers([]); });
+  p.on('error', e => {
+    if (e.type === 'unavailable-id') { p.destroy(); joinAsGuest(); }
+    else setStatus('Erro de conexão: ' + e.type);
+  });
+}
+
+function joinAsGuest() {
+  const p = new Peer();
+  p.on('open', () => {
+    peer = p; wire();
+    hubConn = peer.connect(PREFIX + code, { reliable: true });
+    hubConn.on('open', () => setStatus('Conectado à sala.'));
+    hubConn.on('data', d => { if (d && d.type === 'members') updateMembers(d.list.filter(id => id !== peer.id)); });
+    hubConn.on('close', hubLost);
+  });
+  p.on('error', e => {
+    if (e.type === 'peer-unavailable' && hubConn && !hubConn.open) hubLost();
+    else if (e.type !== 'peer-unavailable') setStatus('Erro de conexão: ' + e.type);
+  });
+}
+
+function hubLost() {
+  setStatus('Reconectando à sala...');
+  setTimeout(() => location.reload(), 800 + Math.random() * 1500);
+}
+
+function wire() {
+  peer.on('connection', conn => {
+    if (!isHub) return;
+    conn.on('open', () => { hubConns.set(conn.peer, conn); broadcast(); });
+    conn.on('close', () => { hubConns.delete(conn.peer); removeTile(conn.peer); broadcast(); });
+  });
+  peer.on('call', call => {
+    call.answer();
+    call.on('stream', s => addTile(call.peer, s, false));
+    call.on('close', () => removeTile(call.peer));
+    call.on('error', () => removeTile(call.peer));
+  });
+}
+
+function broadcast() {
+  const list = [peer.id, ...hubConns.keys()];
+  hubConns.forEach(c => { try { c.send({ type: 'members', list }); } catch (e) {} });
+  updateMembers([...hubConns.keys()]);
+}
+
+function updateMembers(list) {
+  others = list;
+  $count.textContent = list.length + 1;
+  // quem saiu: encerra chamadas e remove vídeos
+  [...outCalls.keys()].forEach(id => { if (!list.includes(id)) { outCalls.get(id).close(); outCalls.delete(id); } });
+  [...tiles.keys()].forEach(id => { if (id !== 'eu' && !list.includes(id)) removeTile(id); });
+  // se estou compartilhando, envia para quem chegou
+  if (myStream) list.forEach(callPeer);
+}
+
+function callPeer(id) {
+  if (outCalls.has(id) || !myStream) return;
+  const call = peer.call(id, myStream);
+  if (call) { outCalls.set(id, call); call.on('close', () => outCalls.delete(id)); }
+}
+
+/* ---------- Compartilhar ---------- */
+async function shareScreen() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    alert('Este navegador não permite compartilhar a tela (celulares em geral não permitem). Você ainda pode assistir.');
+    return;
+  }
+  try {
+    myStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
+  } catch (e) { return; }
+  myStream.getVideoTracks()[0].addEventListener('ended', stopShare);
+  addTile('eu', myStream, true);
+  others.forEach(callPeer);
+  $shareBtn.textContent = 'Parar de compartilhar';
+  $shareBtn.className = 'stop';
+}
+
+function stopShare() {
+  outCalls.forEach(c => c.close()); outCalls.clear();
+  if (myStream) myStream.getTracks().forEach(t => t.stop());
+  myStream = null;
+  removeTile('eu');
+  $shareBtn.textContent = 'Compartilhar minha tela';
+  $shareBtn.className = 'primary';
+}
+
+$shareBtn.onclick = () => myStream ? stopShare() : shareScreen();
+
+/* ---------- Vídeos ---------- */
+let n = 0;
+function addTile(id, stream, mine) {
+  let t = tiles.get(id);
+  if (t) { t.querySelector('video').srcObject = stream; return; }
+  t = document.createElement('div');
+  t.className = 'tile';
+  const label = mine ? 'Sua tela' : 'Tela ' + (++n);
+  t.innerHTML = `<video autoplay playsinline muted></video>
+    <div class="bar"><span>${label}</span><div>
+      ${mine ? '' : '<button data-a="som">Ativar som</button>'}
+      <button data-a="full">Tela cheia</button></div></div>`;
+  const v = t.querySelector('video');
+  v.srcObject = stream;
+  t.querySelector('[data-a="full"]').onclick = () => (t.requestFullscreen || t.webkitRequestFullscreen).call(t);
+  v.ondblclick = () => (t.requestFullscreen || t.webkitRequestFullscreen).call(t);
+  const som = t.querySelector('[data-a="som"]');
+  if (som) som.onclick = () => { v.muted = !v.muted; som.textContent = v.muted ? 'Ativar som' : 'Silenciar'; v.play(); };
+  tiles.set(id, t);
+  $grid.appendChild(t);
+  $empty.style.display = 'none';
+}
+
+function removeTile(id) {
+  const t = tiles.get(id);
+  if (!t) return;
+  t.remove(); tiles.delete(id);
+  if (!tiles.size) $empty.style.display = '';
+}
+
+/* ---------- Link ---------- */
+document.getElementById('copyBtn').onclick = async e => {
+  try { await navigator.clipboard.writeText(location.origin + location.pathname); e.target.textContent = 'Link copiado!'; }
+  catch { prompt('Copie o link:', location.origin + location.pathname); }
+  setTimeout(() => e.target.textContent = 'Copiar link', 1800);
+};
+
+window.addEventListener('beforeunload', () => { if (peer) peer.destroy(); });
+</script>
+</body>
+</html>
