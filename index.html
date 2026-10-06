@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Skipper</title>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
@@ -297,6 +299,150 @@
     .sidebtn{display:inline-block}
     .top small{display:none}
   }
+
+  /* =================== TEMA SKIPPER (identidade própria, náutica) =================== */
+  :root{--rail:#06121f;--side:#0b1b2c;--bg:#0e2134;--card:#16304a;--hover:#132b43;--sel:#1a3b5a;--line:#18304a;--input:#081726;--txt:#eef6ff;--soft:#c5d7ea;--mut:#7d97b0;--acc:#00a2ed;--teal:#2fd3c0;--coral:#ff7a59;--pop:#0a1828}
+  body{font-family:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14.5px;background:#06121f}
+  button{border-radius:12px;font-weight:700}
+  input,textarea,select{border-radius:12px;border:1px solid var(--line)}
+  input:focus,textarea:focus,select:focus{border-color:var(--teal)}
+  .badge{background:var(--coral)}
+  .av.speaking{box-shadow:0 0 0 2px var(--side),0 0 0 4px var(--teal)}
+
+  /* estrutura: topo + lateral + palco + conversa */
+  #app{grid-template-columns:280px minmax(0,1fr) 360px !important;grid-template-rows:64px minmax(0,1fr);background:#06121f}
+  #app.nochat{grid-template-columns:280px minmax(0,1fr) 0 !important}
+  #topbar{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 14px;background:linear-gradient(90deg,#071729,#0a2238 50%,#071729);border-bottom:1px solid #12304b;min-width:0}
+  .tb-brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:21px;letter-spacing:-.3px;flex-shrink:0}
+  .tb-brand img{width:36px;height:36px}
+  .tb-brand b{color:var(--acc);font-weight:900}
+  #rail{flex:1;min-width:0;display:flex !important;flex-direction:row !important;align-items:center;gap:8px;overflow-x:auto;overflow-y:hidden;padding:0 4px;background:transparent !important;position:static !important;transform:none !important;width:auto !important;height:64px;scrollbar-width:none}
+  #rail::-webkit-scrollbar{display:none}
+  .pill{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 6px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--soft);font-weight:700;white-space:nowrap;flex-shrink:0;position:relative}
+  .pill:hover{background:rgba(255,255,255,.08);filter:none}
+  .pill.on{background:linear-gradient(180deg,rgba(47,211,192,.22),rgba(0,162,237,.18));border-color:rgba(47,211,192,.55);color:#fff}
+  .pill .pi{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;color:#fff;background:#1a3b5a;background-size:cover;background-position:center;overflow:hidden}
+  .pill .pi svg{width:16px;height:16px}
+  .pill.act{padding:0 14px;color:var(--teal);border-style:dashed;border-color:rgba(47,211,192,.4)}
+  .pill.act svg{width:16px;height:16px}
+  .pill .badge{position:absolute;top:-4px;right:-4px}
+  .tb-sep{width:1px;height:26px;background:#1d3a57;flex-shrink:0}
+  .tb-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  #topbar .me{background:transparent;padding:4px 4px 4px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.07);gap:10px}
+  #topbar .me:hover{background:rgba(255,255,255,.05)}
+  #topbar .me .meinfo{text-align:right;max-width:180px}
+  #topbar #meAvatar{width:38px !important;height:38px !important}
+
+  /* lateral: cabeçalho da comunidade e salas em cartões */
+  #side{grid-row:2;background:linear-gradient(180deg,#0b1b2c,#081523)}
+  #srvBtn{margin:12px 12px 4px;width:calc(100% - 24px);height:56px;border-radius:16px;background:linear-gradient(135deg,#123552,#0d2740);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);font-size:16px;font-weight:900}
+  #srvBtn:hover{background:linear-gradient(135deg,#16405f,#0f2d49)}
+  #srvMenu{top:74px;left:12px;right:12px;border-radius:14px;border:1px solid #17324d}
+  .mi{border-radius:10px}
+  .mi:hover{background:linear-gradient(90deg,#00a2ed,#2fd3c0)}
+  #nav{padding:6px 12px}
+  .sec{color:#6f8ca8;letter-spacing:.08em;font-weight:900;font-size:11px;padding:16px 4px 8px}
+  .room{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);border-radius:16px;margin:0 0 10px;overflow:hidden;transition:border-color .15s}
+  .room:hover{border-color:rgba(47,211,192,.3)}
+  .room.active{border-color:rgba(47,211,192,.7);background:linear-gradient(180deg,rgba(47,211,192,.10),rgba(0,162,237,.05))}
+  .room.full{opacity:.5}
+  .room .ch{margin:0;padding:12px 12px;border-radius:0;background:transparent !important;color:var(--soft)}
+  .room .ch .nm{font-weight:800;font-size:15px}
+  .room .ch .ico{width:30px;height:30px;border-radius:10px;background:rgba(0,162,237,.15);color:var(--acc)}
+  .room .ch .ico svg{width:17px;height:17px}
+  .room .ch .tag{background:rgba(255,255,255,.07);color:var(--soft)}
+  .room .ch .go{font-size:11px;font-weight:900;color:var(--teal);opacity:0;transition:opacity .15s}
+  .room:hover .ch .go{opacity:1}
+  .room.active .ch .go{opacity:0}
+  .room .who{padding:0 10px 10px 10px}
+  .room .who > div{background:rgba(0,0,0,.18);margin:3px 0;border-radius:10px;padding:6px 8px}
+  .ch.radio{border-radius:12px;padding:10px 12px;background:rgba(255,122,89,.08);border:1px solid rgba(255,122,89,.18);color:#ffd2c4}
+  .ch.radio .ico{color:var(--coral)}
+  .ch.radio.active{background:rgba(255,122,89,.18)}
+  .crow{border-radius:12px}
+  .crow:hover{background:rgba(255,255,255,.05)}
+  .sdot{border-color:var(--side)}
+  #voice{margin:0 12px 8px;border-radius:14px;background:linear-gradient(135deg,rgba(47,211,192,.18),rgba(0,162,237,.12));border:1px solid rgba(47,211,192,.4)}
+  #voice b{color:var(--teal)}
+  #side .tools{display:flex;gap:4px;justify-content:center;padding:8px 12px 12px;border-top:1px solid var(--line)}
+  #side .tools .ib{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.04)}
+
+  /* palco central */
+  #main{grid-row:2;background:radial-gradient(1200px 600px at 50% 115%,#0f3a5a,#071526 60%) !important;position:relative}
+  #main .top{background:transparent;box-shadow:none;border-bottom:1px solid rgba(255,255,255,.05)}
+  .top h2{font-weight:900;font-size:16px}
+  #chatBtn{border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+  #grid{gap:12px;padding:16px}
+  .tile{border-radius:20px;background:linear-gradient(160deg,#12304b,#0b1d30);outline-width:3px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .tile.talk{outline-color:var(--teal)}
+  .tile .bar{top:12px;bottom:auto;left:12px;right:12px}
+  .tile .bar span{border-radius:999px;background:rgba(6,18,31,.72);backdrop-filter:blur(6px);padding:4px 12px}
+  .tile .pav .av{box-shadow:0 0 0 6px rgba(255,255,255,.05)}
+  #empty b{font-weight:900;font-size:20px}
+  .controls{align-self:center;width:max-content;max-width:calc(100% - 24px);margin:0 auto 16px;padding:8px;gap:6px;border-radius:22px;background:rgba(8,22,38,.78);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);box-shadow:0 12px 40px rgba(0,0,0,.45)}
+  .rb{width:74px;height:58px;border-radius:16px;background:rgba(255,255,255,.05);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+  .rb svg{width:22px;height:22px}
+  .rb .lb{font-size:10.5px;font-weight:800;letter-spacing:.02em}
+  .rb.on{background:linear-gradient(180deg,#2fd3c0,#13a99a)}
+  .rb.live{background:linear-gradient(180deg,#2cc0ff,#0086da)}
+  .rb.leave{background:linear-gradient(180deg,#ff8f73,#f2593a)}
+  .rb[data-tip]:hover::after{display:none}
+  #np{border-radius:18px;margin:0 16px 10px;background:linear-gradient(90deg,rgba(255,122,89,.16),rgba(0,162,237,.10));border:1px solid rgba(255,122,89,.25)}
+  #friendsView{background:transparent}
+
+  /* conversa em balões */
+  #chat{grid-row:2;background:#0a1a2b;border-left:1px solid var(--line)}
+  .tabs{box-shadow:none;border-bottom:1px solid var(--line);height:56px}
+  .tabs .ct{font-weight:900}
+  #msgs{padding:16px 0;gap:2px}
+  .msg{gap:8px;padding:2px 14px;margin-top:12px;align-items:flex-end}
+  .msg:hover{background:transparent}
+  .msg .av{width:30px;height:30px;font-size:13px;margin:0}
+  .msg.cont .av{visibility:hidden;height:30px}
+  .msg .c{flex:0 1 auto;max-width:78%;background:#15304a;border-radius:18px 18px 18px 6px;padding:8px 12px}
+  .msg .h{font-size:11px;margin-bottom:2px}
+  .msg .h b{font-size:13px;color:var(--teal)}
+  .msg.cont .h{display:none}
+  .msg .b{color:var(--txt)}
+  .msg.mine{flex-direction:row-reverse}
+  .msg.mine .c{background:linear-gradient(180deg,#0aa8f0,#0080d0);border-radius:18px 18px 6px 18px}
+  .msg.mine .h b{color:#e8f7ff}
+  .msg.mine .h{color:rgba(255,255,255,.75)}
+  .msg.mine .av{display:none}
+  .msg.bot .c{background:linear-gradient(90deg,rgba(255,122,89,.22),rgba(255,122,89,.10));border:1px solid rgba(255,122,89,.3)}
+  .msg.bot .h b{color:#ffb39e}
+  .msg .botag{background:var(--coral)}
+  .msg .del{top:-6px;border-radius:8px}
+  .mimg{border-radius:12px}
+  #chatForm{padding:10px 12px 14px;gap:8px}
+  #chatInput{border-radius:999px;background:#0f2338;border:1px solid var(--line);padding:12px 18px}
+  #attach{border-radius:50%;background:#0f2338;border:1px solid var(--line)}
+
+  /* cartões e janelas */
+  #modal .box{border-radius:20px;background:#0e2134;border:1px solid #18324d}
+  #modal .mf{background:#0b1b2c;border-radius:0 0 20px 20px}
+  .pcard{border-radius:20px;background:#0b1b2c;border:1px solid #18324d;text-align:center}
+  .pcard .ban{height:70px;background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.25))}
+  .pcard .pav{margin:-46px auto 0;border-color:#0b1b2c}
+  .pcard .pb{align-items:center}
+  .pcard .pb .bio{text-align:left;width:100%;background:#0e2134}
+  .smenu{border-radius:14px;border:1px solid #18324d}
+  #auth{background:radial-gradient(circle at 20% 10%,#0f6d8f,#0b2a44 45%,#06121f 80%)}
+  #auth .card{background:#0e2134;border:1px solid #18324d;border-radius:22px}
+
+  @media (max-width:1200px){
+    #app{grid-template-columns:260px minmax(0,1fr) !important}
+    #app.nochat{grid-template-columns:260px minmax(0,1fr) !important}
+    #chat{top:64px !important}
+  }
+  @media (max-width:760px){
+    #app,#app.nochat{grid-template-columns:minmax(0,1fr) !important}
+    .tb-brand span,#topbar .me .meinfo{display:none}
+    #side{top:64px !important;left:0 !important;width:min(300px,88%) !important;transform:translateX(-105%) !important}
+    #side.open{transform:none !important}
+    .rb{width:58px}
+    .rb .lb{display:none}
+  }
 </style>
 </head>
 <body>
@@ -387,7 +533,16 @@
 </div>
 
 <div id="app">
-  <nav id="rail"></nav>
+  <header id="topbar">
+    <div class="tb-brand"><img src="logo.svg" alt=""><span>Skip<b>per</b></span></div>
+    <nav id="rail"></nav>
+    <div class="tb-right" id="tbRight">
+      <div class="me" id="meCard">
+        <div class="meinfo" id="meInfo" title="Mudar status"><b id="meName"></b><small id="meUser"></small></div>
+        <div id="meAvatar"></div>
+      </div>
+    </div>
+  </header>
   <aside id="side">
     <button id="srvBtn"><span id="srvName">Skipper</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
     <div id="srvMenu"></div>
@@ -396,12 +551,10 @@
       <div style="flex:1;min-width:0"><b>Voz conectada</b><small id="voiceRoom"></small></div>
       <button class="ib" id="leaveMini" title="Sair da sala de voz"></button>
     </div>
-    <div class="me" id="meCard">
-      <div id="meAvatar"></div>
-      <div class="meinfo" id="meInfo" title="Mudar status"><b id="meName"></b><small id="meUser"></small></div>
+    <div class="tools">
       <button class="ib" id="micMini" title="Microfone"></button>
-      <button class="ib" id="reportMini" title="Denunciar uma conta"></button>
       <button class="ib" id="devMini" title="Escolher câmera e microfone"></button>
+      <button class="ib" id="reportMini" title="Denunciar uma conta"></button>
     </div>
   </aside>
 
@@ -774,7 +927,7 @@ const ownsServer = () => servers.some(s => s.owner_id === me && !s.is_public);
 
 function renderServerMenu() {
   const m = $('srvMenu'); m.innerHTML = '';
-  m.appendChild(el('div', 'mlab', 'Seus servidores'));
+  m.appendChild(el('div', 'mlab', 'Suas comunidades'));
   servers.forEach(s => {
     const it = el('div', 'mi' + (mode === 'server' && s.id === curServer ? ' cur' : ''));
     const si = el('div', 'si'); paintServerIcon(si, s, true);
@@ -787,15 +940,15 @@ function renderServerMenu() {
   if (isGuest) { add('plus', 'Criar uma conta', guestToSignup); const s0 = srv(); if (s0) add('friends', 'Membros de ' + s0.name, membersDialog); return; }
   const nPend = friends.filter(f => f.status === 'pending' && f.addressee === me).length;
   add('friends', 'Amigos e mensagens privadas' + (nPend ? ' (' + nPend + ')' : ''), () => openDM(null));
-  if (!ownsServer()) add('plus', 'Criar meu servidor', createServerDialog);
-  add('link', 'Entrar com convite', joinInviteDialog);
+  if (!ownsServer()) add('plus', 'Criar minha comunidade', createServerDialog);
+  add('link', 'Usar convite', joinInviteDialog);
   const s = srv();
   if (mode === 'server' && s) {
     m.appendChild(el('div', 'msep'));
     add('friends', 'Membros de ' + s.name, membersDialog);
-    if (s.owner_id === me) { add('link', 'Convidar pessoas', inviteDialog); add('gear', 'Configurações do servidor', serverSettings); }
+    if (s.owner_id === me) { add('link', 'Convidar pessoas', inviteDialog); add('gear', 'Configurações da comunidade', serverSettings); }
     else if (s.is_public && isAdmin) add('gear', 'Trocar foto do ' + s.name, () => serverIconDialog(s));
-    else if (!s.is_public) add('leave', 'Sair do servidor', leaveServer, 'red');
+    else if (!s.is_public) add('leave', 'Sair da comunidade', leaveServer, 'red');
   }
   if (isAdmin) { m.appendChild(el('div', 'msep')); add('shield', 'Painel de administração', adminPanel); }
 }
@@ -807,7 +960,7 @@ $('srvMenu').onclick = e => e.stopPropagation();
 const initials = s => s.is_public ? 'SK' : s.name.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
 function paintServerIcon(ic, s, solid) {
   if (s.icon) { ic.textContent = ''; ic.style.backgroundImage = 'url("' + s.icon + '")'; ic.style.backgroundColor = 'transparent'; return; }
-  if (s.is_public) { ic.textContent = ''; ic.style.backgroundImage = 'url("logo.svg")'; ic.style.backgroundSize = '78%'; ic.style.backgroundRepeat = 'no-repeat'; ic.style.backgroundColor = solid ? '#123a55' : ''; return; }
+  if (s.is_public) { ic.textContent = ''; ic.style.backgroundImage = 'url("logo.svg")'; ic.style.backgroundSize = '86%'; ic.style.backgroundRepeat = 'no-repeat'; ic.style.backgroundColor = '#0b2238'; return; }
   ic.style.backgroundImage = ''; ic.textContent = initials(s);
   ic.style.background = s.is_public ? (solid ? 'var(--acc)' : '') : (solid ? colorOf(s.id) : colorOf(s.id) + '33');
 }
@@ -859,7 +1012,7 @@ async function loadChannels() {
 
 function createServerDialog() {
   const name = el('input'); name.maxLength = 40; name.placeholder = 'Ex.: Turma do 3º ano';
-  openModal('Criar meu servidor', [el('div', 'hint', 'Cada conta pode criar um servidor privado. Só entra quem tiver o seu link de convite.'), el('div', 'lbl', 'Nome do servidor'), name], [
+  openModal('Criar minha comunidade', [el('div', 'hint', 'Cada conta pode criar um servidor privado. Só entra quem tiver o seu link de convite.'), el('div', 'lbl', 'Nome do servidor'), name], [
     ['Cancelar', closeModal],
     ['Criar', async () => {
       const n = name.value.trim();
@@ -971,7 +1124,7 @@ async function serverSettings() {
     await sb.from('servers').delete().eq('id', s.id); closeModal(); await loadServers(); openServer(PUBLIC_ID);
   };
   const iconBtn = el('button', null, 'Trocar foto do servidor'); iconBtn.onclick = () => serverIconDialog(s);
-  openModal('Configurações do servidor', [
+  openModal('Configurações da comunidade', [
     el('div', 'lbl', 'Foto'), iconBtn,
     el('div', 'lbl', 'Nome'), nameRow,
     el('div', 'lbl', 'Link de convite'), linkRow,
@@ -1218,11 +1371,11 @@ function stopLocal(kind, quiet) {
   if (!quiet) { trackMe(); renderAll(); }
 }
 function updateButtons() {
-  const set = (id, cls, icon, tip) => { const b = $(id); b.className = 'rb' + (cls ? ' ' + cls : ''); b.innerHTML = icon; b.dataset.tip = tip; };
-  set('camBtn', local.cam ? 'on' : '', local.cam ? ICON.cam : ICON.camOff, local.cam ? 'Desligar câmera' : 'Ligar câmera');
-  set('screenBtn', local.screen ? 'live' : '', ICON.screen, local.screen ? 'Parar de transmitir' : 'Compartilhar tela');
-  set('micBtn', local.mic ? 'on' : 'mut', local.mic ? ICON.mic : ICON.micOff, local.mic ? 'Desligar microfone' : 'Ligar microfone');
-  $('devBtn').innerHTML = ICON.gear; $('leaveBtn').innerHTML = ICON.leave;
+  const set = (id, cls, icon, tip, lb) => { const b = $(id); b.className = 'rb' + (cls ? ' ' + cls : ''); b.innerHTML = icon + '<span class="lb">' + lb + '</span>'; b.title = tip; };
+  set('camBtn', local.cam ? 'on' : '', local.cam ? ICON.cam : ICON.camOff, local.cam ? 'Desligar câmera' : 'Ligar câmera', 'Câmera');
+  set('screenBtn', local.screen ? 'live' : '', ICON.screen, local.screen ? 'Parar de transmitir' : 'Compartilhar tela', local.screen ? 'Ao vivo' : 'Tela');
+  set('micBtn', local.mic ? 'on' : 'mut', local.mic ? ICON.mic : ICON.micOff, local.mic ? 'Desligar microfone' : 'Ligar microfone', 'Microfone');
+  $('devBtn').innerHTML = ICON.gear + '<span class="lb">Ajustes</span>'; $('leaveBtn').innerHTML = ICON.leave + '<span class="lb">Sair</span>';
   $('micMini').innerHTML = local.mic ? ICON.mic : ICON.micOff; $('micMini').className = 'ib' + (local.mic ? '' : ' off');
   $('devMini').innerHTML = ICON.gear; $('reportMini').innerHTML = ICON.flag; $('leaveMini').innerHTML = ICON.leave;
   $('leaveBtn').style.display = myRoom ? '' : 'none';
@@ -1382,7 +1535,7 @@ function renderNav() {
   if (mode === 'dm') return renderDmNav(nav);
   const s = srv();
   $('srvName').textContent = s ? s.name : 'Skipper';
-  const sec = el('div', 'sec'); sec.appendChild(el('span', null, 'Canais'));
+  const sec = el('div', 'sec'); sec.appendChild(el('span', null, 'Salas'));
   if (s && s.owner_id === me) { const b = el('button', null, '+'); b.title = 'Configurar canais'; b.onclick = serverSettings; sec.appendChild(b); }
   nav.appendChild(sec);
   channels.filter(c => c.kind === 'voice').forEach(c => {
@@ -1394,21 +1547,24 @@ function renderNav() {
     row.appendChild(el('span', 'nm', c.name));
     if (u) row.appendChild(el('span', 'badge', String(u)));
     if (c.max_users) row.appendChild(el('span', 'tag', n + '/' + c.max_users));
-    row.title = full ? 'Canal cheio' : 'Entrar em ' + c.name;
-    row.onclick = () => { if (full) return toast('Esse canal já está cheio.'); joinVoice(c.id); openChat({ type: 'ch', id: c.id }); };
-    nav.appendChild(row);
+    if (myRoom !== c.id) row.appendChild(el('span', 'go', 'ENTRAR'));
+    row.title = full ? 'Sala cheia' : 'Entrar em ' + c.name;
+    row.onclick = () => { if (full) return toast('Essa sala já está cheia.'); joinVoice(c.id); openChat({ type: 'ch', id: c.id }); };
+    const card = el('div', 'room' + (myRoom === c.id ? ' active' : '') + (full ? ' full' : ''));
+    card.appendChild(row);
     const who = el('div', 'who');
     [...members.values()].filter(m => m.room === c.id).forEach(m => who.appendChild(memberLine(m)));
     const mu = musicRows.get(c.id);
     if (mu) { const line = el('div'); line.appendChild(avatarEl('bot', 26)); line.appendChild(el('span', 'n', BOT)); line.appendChild(el('span', 'st', mu.title)); who.appendChild(line); }
-    if (who.children.length) nav.appendChild(who);
+    if (who.children.length) card.appendChild(who);
+    nav.appendChild(card);
   });
   const music = channels.filter(c => c.kind === 'music');
   if (music.length) {
-    nav.appendChild(el('div', 'sec', 'Música'));
+    nav.appendChild(el('div', 'sec', 'Rádio'));
     music.forEach(c => {
       const u = unread.get('ch:' + c.id) || 0;
-      const row = el('div', 'ch' + ((chatView && chatView.id === c.id) ? ' active' : '') + (u ? ' unread' : ''));
+      const row = el('div', 'ch radio' + ((chatView && chatView.id === c.id) ? ' active' : '') + (u ? ' unread' : ''));
       row.appendChild(el('span', 'ico', '♪')); row.appendChild(el('span', 'nm', c.name));
       if (u) row.appendChild(el('span', 'badge', String(u)));
       row.onclick = () => openChat({ type: 'ch', id: c.id });
@@ -1475,26 +1631,30 @@ function renderAll() { paintChatBtn(); renderRail(); renderNav(); renderTop(); r
 function renderRail() {
   const r = $('rail'); if (!r) return;
   r.innerHTML = '';
-  const item = (tip, on, fill, fn, cls, badge) => {
-    const it = el('div', 'ri' + (on ? ' on' : '') + (cls ? ' ' + cls : '')); it.dataset.tip = tip;
-    const ic = el('div', 'ic'); fill(ic); it.appendChild(ic);
-    if (badge) it.appendChild(el('span', 'badge', String(badge)));
-    it.onclick = e => { e.stopPropagation(); closeMenu(); fn(); };
-    r.appendChild(it); return it;
+  const pill = (label, on, fillIcon, fn, cls, badge) => {
+    const b = el('button', 'pill' + (on ? ' on' : '') + (cls ? ' ' + cls : ''));
+    if (fillIcon) { const pi = el('span', 'pi'); fillIcon(pi); b.appendChild(pi); }
+    b.append(label);
+    if (badge) b.appendChild(el('span', 'badge', String(badge)));
+    b.onclick = e => { e.stopPropagation(); closeMenu(); fn(); };
+    r.appendChild(b); return b;
   };
+  const actBtn = (label, icon, fn) => { const b = el('button', 'pill act'); b.appendChild(iconEl(icon)); b.append(label); b.onclick = e => { e.stopPropagation(); fn(); }; r.appendChild(b); };
+  if (isGuest) {
+    servers.forEach(s => pill(s.name, true, pi => paintServerIcon(pi, s, true), () => {}));
+    r.appendChild(el('span', 'tb-sep'));
+    actBtn('Criar uma conta', 'plus', guestToSignup);
+    return;
+  }
   let dmUnread = 0; unread.forEach((n, k) => { if (k.startsWith('dm:')) dmUnread += n; });
   dmUnread += friends.filter(f => f.status === 'pending' && f.addressee === me).length;
-  if (isGuest) { item('Criar uma conta', false, ic => ic.innerHTML = ICON.plus, guestToSignup, 'green'); r.appendChild(el('div', 'rsep')); servers.forEach(s => item(s.name, true, ic => paintServerIcon(ic, s, true), () => {})); return; }
-  item('Contatos e mensagens diretas', mode === 'dm', ic => { ic.style.background = 'transparent'; ic.innerHTML = '<img src="logo.svg" alt="" style="width:44px;height:44px">'; }, () => openDM(null), '', dmUnread);
-  r.appendChild(el('div', 'rsep'));
-  servers.forEach(s => {
-    const on = mode === 'server' && s.id === curServer;
-    item(s.name, on, ic => paintServerIcon(ic, s, on), () => openServer(s.id));
-  });
-  r.appendChild(el('div', 'rsep'));
-  if (!ownsServer()) item('Criar meu servidor', false, ic => ic.innerHTML = ICON.plus, createServerDialog, 'green');
-  item('Entrar com convite', false, ic => ic.innerHTML = ICON.link, joinInviteDialog, 'green');
-  if (isAdmin) item('Painel de administração', false, ic => ic.innerHTML = ICON.shield, adminPanel, 'green');
+  pill('Mensagens', mode === 'dm', pi => { pi.innerHTML = ICON.friends; pi.style.background = 'linear-gradient(135deg,#2fd3c0,#00a2ed)'; }, () => openDM(null), '', dmUnread);
+  r.appendChild(el('span', 'tb-sep'));
+  servers.forEach(s => pill(s.name, mode === 'server' && s.id === curServer, pi => paintServerIcon(pi, s, true), () => openServer(s.id)));
+  r.appendChild(el('span', 'tb-sep'));
+  if (!ownsServer()) actBtn('Criar comunidade', 'plus', createServerDialog);
+  actBtn('Usar convite', 'link', joinInviteDialog);
+  if (isAdmin) actBtn('Administração', 'shield', adminPanel);
 }
 
 /* ===================== Chat ===================== */
@@ -1552,7 +1712,7 @@ function appendMsg(m) {
   const ts = Date.parse(m.created_at);
   const cont = box.dataset.last === String(who) && ts - Number(box.dataset.lastTs || 0) < 5 * 60000;
   box.dataset.last = who; box.dataset.lastTs = ts;
-  const d = el('div', 'msg' + (m.is_bot ? ' bot' : '') + (cont ? ' cont' : ''));
+  const d = el('div', 'msg' + (m.is_bot ? ' bot' : '') + (cont ? ' cont' : '') + (!m.is_bot && m.uid === me ? ' mine' : ''));
   d.dataset.mid = m.id;
   d.appendChild(avatarEl(m.is_bot ? 'bot' : m.uid, 0));
   const c = el('div', 'c');
