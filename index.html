@@ -982,10 +982,49 @@ function statusMenu(ev) {
 /* ===================== Imagens seguras e insígnias ===================== */
 const STORAGE_PUBLIC = SUPA_URL + '/storage/v1/object/public/';
 const safeImg = u => (typeof u === 'string' && (u.startsWith('data:image/') || u.startsWith(STORAGE_PUBLIC))) ? u : '';
-const BADGES = { skipper1: { img: 'badges/skipper1.gif', name: 'Skipper #1', desc: 'Pioneiro: conta criada em 2026' } };
-function badgeImgs(p, size) {
+const BADGES = { skipper1: { img: 'badges/skipper1.gif', still: 'badges/skipper1.png', name: 'Skipper #1', desc: 'Pioneiro: conta criada em 2026' } };
+/* GIF parado: fora do cartão de perfil mostramos só o primeiro quadro (economiza processamento e internet) */
+const isGif = u => typeof u === 'string' && /\.gif($|\?)/i.test(u);
+const stills = new Map(); // url do GIF -> Promise<url da imagem parada>
+function stillOf(url) {
+  if (!isGif(url)) return Promise.resolve(url);
+  if (stills.has(url)) return stills.get(url);
+  const frame = src => new Promise((res, rej) => {
+    const im = new Image(); im.crossOrigin = 'anonymous'; im.decoding = 'async';
+    im.onload = () => {
+      try {
+        const c = document.createElement('canvas'), k = Math.min(1, 256 / Math.max(im.naturalWidth, im.naturalHeight, 1));
+        c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/webp', .85));
+      } catch (e) { rej(e); }
+    };
+    im.onerror = rej; im.src = src;
+  });
+  // 1º tenta a versão parada salva junto (pequena); se não tiver, tira o primeiro quadro do próprio GIF
+  const pr = new Promise(res => { const t = new Image(); t.onload = () => res(t.src); t.onerror = () => res(null); t.src = url.replace(/\.gif($|\?)/i, '.still.jpg$1'); })
+    .then(u => u || frame(url)).catch(() => url);
+  stills.set(url, pr); return pr;
+}
+// guarda uma cópia parada (primeiro quadro) do GIF ao lado dele, para os outros não baixarem o GIF inteiro
+async function saveStill(url) {
+  try {
+    const path = decodeURIComponent(url.split('/profile-media/')[1] || ''); if (!path) return;
+    const im = await new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const c = document.createElement('canvas'), k = Math.min(1, 480 / Math.max(im.naturalWidth, im.naturalHeight, 1));
+    c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+    const g = c.getContext('2d'); g.fillStyle = '#0e2134'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .85));
+    await sb.storage.from('profile-media').upload(path.replace(/\.gif$/i, '.still.jpg'), blob, { contentType: 'image/jpeg' });
+    stills.set(url, Promise.resolve(c.toDataURL('image/jpeg', .85)));
+  } catch (e) { /* sem cópia parada: o site tira o primeiro quadro na hora */ }
+}
+function setBg(node, url, animate) {
+  if (animate || !isGif(url)) { node.style.backgroundImage = 'url("' + url + '")'; return; }
+  stillOf(url).then(u => { node.style.backgroundImage = 'url("' + u + '")'; });
+}
+function badgeImgs(p, size, animate) {
   const wrap = el('span', 'bdg');
-  (p && p.badges || []).forEach(k => { const b = BADGES[k]; if (!b) return; const i = el('img'); i.src = b.img; i.alt = b.name; i.title = b.name + ' · ' + b.desc; i.style.width = i.style.height = size + 'px'; wrap.appendChild(i); });
+  (p && p.badges || []).forEach(k => { const b = BADGES[k]; if (!b) return; const i = el('img'); i.src = animate ? b.img : (b.still || b.img); i.alt = b.name; i.title = b.name + ' · ' + b.desc; i.style.width = i.style.height = size + 'px'; wrap.appendChild(i); });
   return wrap;
 }
 
@@ -1000,13 +1039,13 @@ async function ensureProfiles(ids) {
   const { data } = await sb.from('profiles').select('id,username,display_name,bio,avatar,banner_color,status_text,banner,badges,socials,created_at').in('id', miss);
   (data || []).forEach(p => profiles.set(p.id, p));
 }
-function avatarEl(uid, size, speak, dot) {
+function avatarEl(uid, size, speak, dot, animate) {
   const a = el('div', 'av');
   if (speak) a.dataset.speak = speak;
   if (size) { a.style.width = a.style.height = size + 'px'; a.style.fontSize = Math.round(size * 0.42) + 'px'; }
   if (uid === 'bot') { a.style.background = 'linear-gradient(180deg,#2cc0ff,#0086da)'; a.textContent = '♪'; return a; }
   const p = profiles.get(uid);
-  if (p && safeImg(p.avatar)) a.style.backgroundImage = 'url("' + safeImg(p.avatar) + '")';
+  if (p && safeImg(p.avatar)) { a.style.backgroundColor = colorOf(p.username || uid); setBg(a, safeImg(p.avatar), animate); }
   else { const n = p ? (p.display_name || p.username) : '?'; a.style.background = colorOf(p ? p.username : uid); a.textContent = (n[0] || '?').toUpperCase(); }
   if (dot && uid) { const d = el('span'); d.dataset.sdot = uid; paintDot(d, uid); a.appendChild(d); }
   if (uid) a.onclick = e => { e.stopPropagation(); showCard(uid, e); };
@@ -2296,11 +2335,11 @@ function profileCard(uid) {
   const ban = el('div', 'ban'); ban.style.backgroundColor = p.banner_color || '#00a2ed';
   if (safeImg(p.banner)) { ban.style.backgroundImage = 'url("' + safeImg(p.banner) + '")'; ban.style.backgroundSize = 'cover'; ban.style.backgroundPosition = 'center'; ban.classList.add('img'); }
   card.appendChild(ban);
-  const pav = el('div', 'pav'); const a = avatarEl(uid, 80, null, true); a.onclick = null; a.style.cursor = 'default'; pav.appendChild(a); card.appendChild(pav);
+  const pav = el('div', 'pav'); const a = avatarEl(uid, 80, null, true, true); a.onclick = null; a.style.cursor = 'default'; pav.appendChild(a); card.appendChild(pav);
   const pb = el('div', 'pb');
   pb.appendChild(el('b', null, p.display_name || p.username || 'Usuário'));
   pb.appendChild(el('div', 'u', '@' + (p.username || '')));
-  if (p.badges && p.badges.length) pb.appendChild(badgeImgs(p, 44));
+  if (p.badges && p.badges.length) pb.appendChild(badgeImgs(p, 44, true));
   const st = statusOf(uid); const sl = el('div', 'hint', STATUS[st][0] + (p.status_text ? ' · ' + p.status_text : '')); pb.appendChild(sl);
   if (p.bio) pb.appendChild(el('div', 'bio', p.bio));
   const sl2 = socialLinks(p); if (sl2) pb.appendChild(sl2);
@@ -2351,7 +2390,9 @@ async function uploadProfileFile(file, kind) {
   const path = me + '/' + kind + '-' + rnd() + '.' + ext;
   const { error } = await sb.storage.from('profile-media').upload(path, blob, { contentType: type });
   if (error) throw error;
-  return sb.storage.from('profile-media').getPublicUrl(path).data.publicUrl;
+  const url = sb.storage.from('profile-media').getPublicUrl(path).data.publicUrl;
+  if (ext === 'gif') await saveStill(url);
+  return url;
 }
 // baixa um GIF de um link da internet e guarda uma cópia no Skipper
 async function importFromLink(url, kind) {
@@ -2363,6 +2404,7 @@ async function importFromLink(url, kind) {
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.ok) throw new Error(j.error || 'Não consegui usar esse link.');
+  if (isGif(j.url)) await saveStill(j.url);
   return j.url;
 }
 
