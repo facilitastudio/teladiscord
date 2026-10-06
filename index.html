@@ -40,6 +40,13 @@
   .crow .n b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .crow .n small{display:block;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .smenu{background:var(--pop);border-radius:8px;padding:6px;width:230px}
+  .spick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .spick button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;background:var(--side);border:2px solid transparent;border-radius:10px;font-weight:600}
+  .spick button svg{width:34px;height:34px;color:var(--soft)}
+  .spick button.on{border-color:var(--acc);background:#1d3a50}
+  .qrow{display:flex;gap:8px;flex-wrap:wrap}
+  .qrow button{flex:1;background:var(--side);border:2px solid transparent;border-radius:8px}
+  .qrow button.on{border-color:var(--acc);background:#1d3a50}
   .smenu .mi .d{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 
   #auth{position:fixed;inset:0;background:radial-gradient(circle at 20% 10%,#0b6fb0,#12324a 45%,#1e1f22 80%);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20;overflow:auto}
@@ -1137,6 +1144,48 @@ const pref = { cam: '', mic: '' };
 try { pref.cam = localStorage.getItem('tela_cam') || ''; pref.mic = localStorage.getItem('tela_mic') || ''; } catch (e) {}
 const camConstraints = () => Object.assign({ width: { ideal: 1280 }, height: { ideal: 720 } }, pref.cam ? { deviceId: { exact: pref.cam } } : {});
 const micConstraints = () => Object.assign({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, pref.mic ? { deviceId: { exact: pref.mic } } : {});
+// escolha antes da janela do navegador: o que compartilhar e com qual qualidade
+let shareCfg = { surface: 'monitor', res: 1080, fps: 30 };
+try { Object.assign(shareCfg, JSON.parse(localStorage.getItem('xc_share') || '{}')); } catch (e) {}
+function screenPicker() {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = v => { if (done) return; done = true; closeModal(); resolve(v); };
+    const opts = [['monitor', 'Tela inteira', '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>'],
+                  ['window', 'Janela', '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg>'],
+                  ['browser', 'Aba do navegador', '<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="15" rx="2"/><path d="M2 9h20M6 5v4"/></svg>']];
+    const pick = el('div', 'spick');
+    const draw = () => {
+      pick.innerHTML = '';
+      opts.forEach(([k, t, ic]) => { const b = el('button', shareCfg.surface === k ? 'on' : ''); b.type = 'button'; b.innerHTML = ic; b.append(t); b.onclick = () => { shareCfg.surface = k; draw(); }; pick.appendChild(b); });
+      qual.innerHTML = '';
+      [[720, 30, '720p 30'], [1080, 30, '1080p 30'], [720, 60, '720p 60'], [1080, 60, '1080p 60']].forEach(([r, f, t]) => {
+        const b = el('button', shareCfg.res === r && shareCfg.fps === f ? 'on' : '', t); b.type = 'button';
+        b.onclick = () => { shareCfg.res = r; shareCfg.fps = f; draw(); }; qual.appendChild(b);
+      });
+    };
+    const qual = el('div', 'qrow');
+    draw();
+    openModal('Compartilhar tela', [pick, el('div', 'lbl', 'Qualidade'), qual,
+      el('div', 'hint', 'Depois o navegador abre a janela dele para você escolher qual tela, janela ou aba. 60 quadros deixa jogos e vídeos mais lisos, mas usa mais internet.')], [
+      ['Cancelar', () => finish(null)],
+      ['Compartilhar', () => {
+        try { localStorage.setItem('xc_share', JSON.stringify(shareCfg)); } catch (e) {}
+        const h = shareCfg.res, w = Math.round(h * 16 / 9);
+        finish({
+          video: { displaySurface: shareCfg.surface, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: shareCfg.fps, max: shareCfg.fps } },
+          audio: true,
+          selfBrowserSurface: 'exclude',   // não mostra a própria aba do Skipper na lista
+          surfaceSwitching: 'include',     // botão do Chrome para trocar o que está sendo compartilhado
+          systemAudio: 'include',
+          monitorTypeSurfaces: 'include',
+        });
+      }, 'primary'],
+    ]);
+    $('modal').addEventListener('click', function f(e) { if (e.target === $('modal')) { $('modal').removeEventListener('click', f); finish(null); } });
+  });
+}
+
 async function toggle(kind) {
   if (local[kind]) return stopLocal(kind);
   if (!myRoom) return toast('Entre num canal de voz primeiro (clique num canal na lateral).');
@@ -1144,7 +1193,8 @@ async function toggle(kind) {
   try {
     if (kind === 'screen') {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return toast('Este navegador não permite compartilhar a tela.');
-      s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
+      const opt = await screenPicker(); if (!opt) return;
+      s = await navigator.mediaDevices.getDisplayMedia(opt);
     } else if (kind === 'cam') s = await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false });
     else s = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false });
   } catch (e) {
