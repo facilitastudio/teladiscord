@@ -75,7 +75,7 @@
   #callBox.big{width:min(720px,calc(100vw - 24px))}
   #callBox .cwho{display:flex;align-items:center;gap:12px}
   #callBox .cwho .av{position:relative;flex-shrink:0}
-  #callBox.ring .who .av::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--acc);animation:ringp 1.2s ease-out infinite}
+  #callBox.ring .cwho .av::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--acc);animation:ringp 1.2s ease-out infinite}
   @keyframes ringp{from{transform:scale(.9);opacity:1}to{transform:scale(1.35);opacity:0}}
   #callBox .cwho b{display:block;font-size:16px}
   #callBox .cwho small{color:var(--mut);font-size:12px}
@@ -1737,7 +1737,7 @@ function renderNav() {
     row.onclick = () => { if (full) return toast('Essa sala já está cheia.'); joinVoice(c.id); openChat({ type: 'ch', id: c.id }); };
     const card = el('div', 'room' + (myRoom === c.id ? ' active' : '') + (full ? ' full' : ''));
     card.appendChild(row);
-    const who = el('div', 'cwho');
+    const who = el('div', 'who');
     [...members.values()].filter(m => m.room === c.id).forEach(m => who.appendChild(memberLine(m)));
     const mu = musicRows.get(c.id);
     if (mu) { const line = el('div'); line.appendChild(avatarEl('bot', 26)); line.appendChild(el('span', 'n', BOT)); line.appendChild(el('span', 'st', mu.title)); who.appendChild(line); }
