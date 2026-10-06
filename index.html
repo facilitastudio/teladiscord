@@ -674,6 +674,26 @@
   #reloadBtn .upd{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--coral);color:#fff;font-size:11px;font-weight:900;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--rail)}
   #reloadBtn.has-upd{border-color:var(--coral);color:var(--coral);animation:updPulse 1.8s ease-in-out infinite}
   @keyframes updPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,122,89,.45)}50%{box-shadow:0 0 0 7px rgba(255,122,89,0)}}
+
+  /* aviso do administrador */
+  #annBox{position:fixed;inset:0;z-index:75;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(3,10,18,.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #annBox.open{display:flex;animation:dlgf .2s ease-out}
+  #annBox .acard{width:100%;max-width:480px;max-height:86vh;display:flex;flex-direction:column;border-radius:24px;overflow:hidden;background:var(--panel);border:1px solid var(--g-brd);box-shadow:0 28px 70px rgba(0,0,0,.55);animation:dlgp .25s cubic-bezier(.2,.9,.3,1.25)}
+  #annBox .ahead{position:relative;padding:22px 22px 18px;background:linear-gradient(135deg,#00a2ed,#2fd3c0);color:#fff}
+  #annBox .ahead::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.28),rgba(255,255,255,.04) 40%,transparent 41%);pointer-events:none}
+  #annBox .atag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;background:rgba(0,0,0,.18);padding:4px 10px;border-radius:999px}
+  #annBox .atag img{width:16px;height:16px}
+  #annBox h3{font-size:22px;font-weight:900;margin-top:10px;line-height:1.2}
+  #annBox .adate{font-size:12px;opacity:.85;margin-top:4px}
+  #annBox .abody{padding:18px 22px;overflow:auto;white-space:pre-wrap;line-height:1.55;color:var(--soft);font-size:14.5px}
+  #annBox .afoot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 22px 20px}
+  #annBox .afoot small{color:var(--mut)}
+  .annlist{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto}
+  .annlist .it{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--chip)}
+  .annlist .it div{flex:1;min-width:0}
+  .annlist .it b{display:block}
+  .annlist .it small{color:var(--mut)}
+  #annBtn{color:var(--coral)}
 </style>
 </head>
 <body>
@@ -769,6 +789,7 @@
     <nav id="rail"></nav>
     <div class="tb-right" id="tbRight">
       <button class="themebtn" id="reloadBtn" type="button" title="Recarregar o site (volta para onde você estava)"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>
+      <button class="themebtn" id="annBtn" type="button" title="Publicar aviso para todos" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 10v4h3l6 4V6L6 10z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
       <button class="themebtn" id="themeBtn" type="button"></button>
       <div class="me" id="meCard">
         <div class="meinfo" id="meInfo" title="Mudar status"><b id="meName"></b><small id="meUser"></small></div>
@@ -853,6 +874,7 @@
 <div id="pop"></div>
 <div id="callBox"></div>
 <div id="dlg"></div>
+<div id="annBox"></div>
 <div id="toast"></div>
 <button id="sound" class="primary">Clique para ativar o áudio da sala</button>
 <div id="lightbox"><img alt=""></div>
@@ -1178,6 +1200,8 @@ async function startApp(session) {
     if (channels.some(c => c.id === resume.room)) joinVoice(resume.room);
   }
   await openServer(first);
+  if (isAdmin) $('annBtn').style.display = '';
+  setTimeout(checkAnnouncements, 1200);
   if (resume && resume.mode === 'dm') openDM(resume.chat && resume.chat.type === 'dm' ? resume.chat.id : null);
   else if (resume && resume.chat && resume.chat.type === 'ch' && chan(resume.chat.id)) openChat(resume.chat);
   if (inviteParam) { history.replaceState(null, '', location.pathname); if (isGuest) toast('Convidados não entram em servidores por convite. Crie uma conta.'); else askJoinInvite(inviteParam); }
@@ -2728,6 +2752,7 @@ function subscribeDb() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'servers' }, () => loadServers().then(() => renderAll()))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => loadFriends())
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, ({ new: a }) => { if (a && a.id) showAnnouncements([a]); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_calls' }, ({ new: n }) => { if (n && n.id) onCallRow(n); })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, ({ new: p }) => {
       if (!p || !p.id) return;
@@ -3387,6 +3412,85 @@ async function checkUpdate() {
 checkUpdate();
 setInterval(checkUpdate, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+
+/* ===================== Avisos do administrador ===================== */
+// cada aviso aparece uma vez para cada pessoa (fica marcado no banco, vale em qualquer aparelho)
+const annQueue = []; let annShowing = false;
+async function checkAnnouncements() {
+  const since = new Date(Date.now() - 30 * 864e5).toISOString();
+  const { data: list } = await sb.from('announcements').select('*').gte('created_at', since).order('created_at', { ascending: false }).limit(5);
+  if (!list || !list.length) return;
+  showAnnouncements(list);
+}
+async function showAnnouncements(list) {
+  const ids = list.map(a => a.id);
+  const { data: seen } = await sb.from('announcement_seen').select('announcement_id').in('announcement_id', ids);
+  const done = new Set((seen || []).map(r => r.announcement_id));
+  list.filter(a => !done.has(a.id) && !annQueue.some(q => q.id === a.id)).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)).forEach(a => annQueue.push(a));
+  nextAnnouncement();
+}
+function nextAnnouncement() {
+  if (annShowing || !annQueue.length) return;
+  const a = annQueue.shift(); annShowing = true;
+  if (!a.preview) sb.from('announcement_seen').insert({ announcement_id: a.id }).then(() => {});
+  const box = $('annBox'); box.innerHTML = ''; box.className = 'open';
+  const card = el('div', 'acard'); card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+  const head = el('div', 'ahead');
+  const tag = el('span', 'atag'); const lg = el('img'); lg.src = 'logo.svg'; lg.alt = ''; tag.append(lg, 'Aviso do Skipper'); head.appendChild(tag);
+  head.appendChild(el('h3', null, a.title));
+  head.appendChild(el('div', 'adate', new Date(a.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })));
+  card.appendChild(head);
+  card.appendChild(el('div', 'abody', a.body));
+  const foot = el('div', 'afoot');
+  foot.appendChild(el('small', null, annQueue.length ? 'Mais ' + annQueue.length + ' aviso' + (annQueue.length > 1 ? 's' : '') : 'Equipe Skipper'));
+  const ok = el('button', 'primary', annQueue.length ? 'Próximo' : 'Entendi'); ok.type = 'button';
+  const close = () => { box.className = ''; box.innerHTML = ''; annShowing = false; document.removeEventListener('keydown', key, true); setTimeout(nextAnnouncement, 250); };
+  const key = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(); } };
+  document.addEventListener('keydown', key, true);
+  ok.onclick = close; foot.appendChild(ok); card.appendChild(foot); box.appendChild(card);
+  box.onclick = e => { if (e.target === box) close(); };
+  sfx('join'); setTimeout(() => ok.focus(), 50);
+}
+// painel do administrador para publicar
+async function announcePanel() {
+  if (!isAdmin) return;
+  const title = el('input'); title.maxLength = 80; title.placeholder = 'Ex.: Novidades da semana';
+  const body = el('textarea'); body.maxLength = 2000; body.rows = 7; body.placeholder = 'Escreva o aviso. Ele aparece uma vez para cada pessoa, assim que ela abrir o Skipper (ou na hora, para quem já está online).';
+  const count = el('div', 'hint', '0 / 2000'); body.oninput = () => count.textContent = body.value.length + ' / 2000';
+  const listBox = el('div', 'annlist');
+  const drawList = async () => {
+    listBox.innerHTML = '';
+    const { data } = await sb.from('announcements').select('*').order('created_at', { ascending: false }).limit(10);
+    if (!data || !data.length) { listBox.appendChild(el('div', 'hint', 'Nenhum aviso publicado ainda.')); return; }
+    data.forEach(a => {
+      const it = el('div', 'it'); const tx = el('div'); tx.appendChild(el('b', null, a.title)); tx.appendChild(el('small', null, new Date(a.created_at).toLocaleString('pt-BR')));
+      const del = el('button', 'danger', 'Apagar'); del.type = 'button';
+      del.onclick = async () => {
+        if (!await askDialog({ title: 'Apagar aviso?', text: ['O aviso ', { b: a.title }, ' some para quem ainda não viu.'], ok: 'Apagar', danger: true })) return;
+        const { error } = await sb.from('announcements').delete().eq('id', a.id); if (error) return toast('Não consegui apagar.'); drawList();
+      };
+      it.append(tx, del); listBox.appendChild(it);
+    });
+  };
+  drawList();
+  openModal('Aviso para todos', [
+    el('div', 'lbl', 'Título'), title,
+    el('div', 'lbl', 'Mensagem'), body, count,
+    el('div', 'lbl', 'Avisos publicados'), listBox,
+  ], [
+    ['Cancelar', closeModal],
+    ['Ver como fica', () => { if (!title.value.trim() || !body.value.trim()) return toast('Escreva o título e a mensagem.'); annQueue.unshift({ id: 'previa', preview: true, title: title.value.trim(), body: body.value.trim(), created_at: new Date().toISOString() }); nextAnnouncement(); }],
+    ['Publicar para todos', async () => {
+      const t = title.value.trim(), b = body.value.trim();
+      if (!t || !b) return toast('Escreva o título e a mensagem.');
+      if (!await askDialog({ title: 'Publicar o aviso?', text: 'Todo mundo vai ver esse aviso uma vez, inclusive quem está online agora.', ok: 'Publicar' })) return;
+      const { error } = await sb.from('announcements').insert({ title: t, body: b });
+      if (error) return toast('Não consegui publicar: ' + error.message);
+      closeModal(); toast('Aviso publicado.');
+    }, 'primary'],
+  ]);
+}
+$('annBtn').onclick = e => { e.stopPropagation(); announcePanel(); };
 </script>
 </body>
 </html>
