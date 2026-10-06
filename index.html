@@ -34,13 +34,9 @@
   #gate button{padding:12px;font-size:15px}
 
   /* estrutura */
-  #app{display:none;height:100%;grid-template-columns:72px 240px minmax(0,1fr) 320px}
+  #app{display:none;height:100%;grid-template-columns:260px minmax(0,1fr) 340px}
 
   /* trilho de servidores */
-  #rail{background:var(--rail);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:8px}
-  .srv{width:48px;height:48px;border-radius:16px;background:var(--acc);display:grid;place-items:center;font-weight:800;font-size:15px;position:relative}
-  .srv::before{content:"";position:absolute;left:-16px;width:4px;height:40px;border-radius:0 4px 4px 0;background:#fff}
-  .railsep{width:32px;height:2px;background:var(--side);border-radius:1px}
 
   /* barra lateral */
   #side{background:var(--side);display:flex;flex-direction:column;min-height:0}
@@ -58,21 +54,6 @@
   .badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:0 6px;line-height:16px}
   .who{padding:0 0 4px 30px;display:flex;flex-direction:column}
   .who > div{display:flex;gap:10px;align-items:center;padding:6px 8px;margin:2px 0;border-radius:4px;color:var(--mut);font-size:14px}
-  #picker{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:16px;z-index:15}
-  #picker.open{display:flex}
-  #picker .box{width:100%;max-width:520px;background:var(--bg);border-radius:10px;padding:28px;box-shadow:0 10px 50px rgba(0,0,0,.5)}
-  #picker h2{font-size:22px;text-align:center}
-  #picker p{color:var(--mut);text-align:center;margin:4px 0 18px}
-  .room{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:8px;background:var(--side);margin-bottom:10px;cursor:pointer;border:2px solid transparent}
-  .room:hover{border-color:var(--acc)}
-  .room.full{opacity:.5;cursor:not-allowed;border-color:transparent}
-  .room .rh{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px}
-  .room .rh svg{color:var(--mut)}
-  .room .rh span{flex:1}
-  .room .rh small{font-weight:600;color:var(--mut);font-size:12px}
-  .room .ppl{display:flex;flex-wrap:wrap;gap:8px 16px}
-  .room .ppl div{display:flex;align-items:center;gap:8px;color:var(--soft);font-size:13px}
-  .room .vazia{color:var(--mut);font-size:13px}
   .who > div:hover{background:var(--hover);color:var(--soft)}
   .who .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .who svg{width:15px;height:15px;color:var(--mut)}
@@ -148,7 +129,17 @@
 
   /* chat */
   #chat{background:var(--bg);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-  .tabs{height:48px;display:flex;gap:4px;padding:0 8px;box-shadow:0 1px 0 rgba(0,0,0,.25);align-items:center;flex-shrink:0}
+  .tabs{height:48px;display:flex;gap:8px;padding:0 16px;box-shadow:0 1px 0 rgba(0,0,0,.25);align-items:center;flex-shrink:0}
+  .tabs .ct{flex:1;display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;min-width:0}
+  .tabs .ct span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tabs .ct i{font-style:normal;color:var(--mut);font-size:20px;font-weight:500}
+  .mimg{display:block;max-width:min(100%,320px);max-height:300px;border-radius:8px;margin-top:6px;cursor:zoom-in}
+  .expired{color:var(--mut);font-style:italic;font-size:12px}
+  #attach{width:40px;height:40px;padding:0;display:grid;place-items:center;background:var(--card);color:var(--soft);border-radius:8px;flex-shrink:0}
+  #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:40;cursor:zoom-out;padding:24px}
+  #lightbox.open{display:flex}
+  #lightbox img{max-width:100%;max-height:100%;border-radius:6px}
+  .ch .sub{padding-left:28px;font-size:13px}
   .tabs button{flex:1;padding:6px 4px;font-size:13px;position:relative;background:transparent;color:var(--mut);font-weight:500}
   .tabs button:hover{background:var(--hover);color:var(--soft);filter:none}
   .tabs button.active{background:var(--sel);color:#fff}
@@ -170,7 +161,7 @@
   .sys{color:var(--mut);font-size:13px;text-align:center;margin:auto 16px}
   #chatForm{display:flex;gap:6px;padding:0 12px 16px}
   #chatInput{flex:1;min-width:0;background:var(--card);border:0;border-radius:8px;padding:11px 14px;color:var(--txt);font:inherit;outline:none}
-  #chatForm button{display:none}
+  #chatForm button[type=submit]{display:none}
 
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111214;padding:10px 16px;border-radius:8px;font-size:13px;z-index:30;display:none;max-width:90%;box-shadow:0 8px 24px rgba(0,0,0,.4)}
   #devPanel{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));background:#111214;border-radius:8px;padding:16px;display:none;flex-direction:column;gap:12px;z-index:8;box-shadow:0 12px 40px rgba(0,0,0,.5)}
@@ -182,14 +173,13 @@
 
   .mob{display:none}
   @media (max-width:1200px){
-    #app{grid-template-columns:72px 220px minmax(0,1fr)}
+    #app{grid-template-columns:240px minmax(0,1fr)}
     #chat{position:fixed;top:0;right:0;bottom:0;width:min(340px,100%);z-index:10;transform:translateX(100%);transition:transform .2s}
     #chat.open{transform:none}
     #chatClose,.chatbtn{display:inline-block}
   }
   @media (max-width:760px){
     #app{grid-template-columns:minmax(0,1fr)}
-    #rail{display:none}
     #side{position:fixed;top:0;left:0;bottom:0;width:min(280px,85%);z-index:10;transform:translateX(-100%);transition:transform .2s}
     #side.open{transform:none}
     .sidebtn{display:inline-block}
@@ -217,8 +207,6 @@
 </div>
 
 <div id="app">
-  <nav id="rail"><div class="srv" title="Tela Compartilhada">TC</div><div class="railsep"></div></nav>
-
   <aside id="side">
     <div class="brand">Tela Compartilhada<small id="online">...</small></div>
     <nav id="nav"></nav>
@@ -274,13 +262,15 @@
     <div class="tabs" id="tabs"></div>
     <div id="msgs"></div>
     <form id="chatForm" autocomplete="off">
+      <button type="button" id="attach" title="Enviar imagem"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg></button>
+      <input type="file" id="imgFile" accept="image/*" hidden>
       <input id="chatInput" maxlength="1000" placeholder="Conversar">
       <button class="primary" type="submit">Enviar</button>
     </form>
   </aside>
 </div>
 <input type="file" id="avatarFile" accept="image/*" hidden>
-<div id="picker"><div class="box"><h2>Escolha uma sala</h2><p>Você pode trocar de sala depois pela barra lateral.</p><div id="pickList"></div></div></div>
+<div id="lightbox"><img alt=""></div>
 
 <div id="toast"></div>
 <button id="sound" class="primary">Clique para ativar o áudio da sala</button>
@@ -289,17 +279,17 @@
 /* ================= Configuração ================= */
 // Só o hash do código fica no fonte. O ID do servidor da sala é derivado do código.
 const ACCESS_HASH = '0f9dbab494594994c643ed8220cec23a90eb30fb75cc02001d1079748e6fd542';
+// Cada sala de voz tem o seu próprio chat de texto (mesmo id)
 const ROOMS = [
   { id: 'geral', name: 'Sala geral', max: 0 },
-  { id: 'priv1', name: 'Sala privada 01', max: 2 },
-  { id: 'priv2', name: 'Sala privada 02', max: 2 },
+  { id: 's1', name: 'Sala 01', max: 0 },
+  { id: 's2', name: 'Sala 02', max: 0 },
+  { id: 's3', name: 'Sala 03', max: 0 },
+  { id: 'priv1', name: 'Privada 01', max: 2 },
+  { id: 'priv2', name: 'Privada 02', max: 2 },
 ];
-const CHATS = [
-  { id: 'c1', name: 'Chat 01' },
-  { id: 'c2', name: 'Chat 02' },
-  { id: 'c3', name: 'Chat 03' },
-  { id: 'musica', name: 'Música' },
-];
+const CHATS = [...ROOMS.map(r => ({ id: r.id, name: r.name })), { id: 'musica', name: 'pedir-música' }];
+const isPriv = id => { const r = ROOMS.find(r => r.id === id); return !!(r && r.max); };
 const KINDS = ['screen', 'cam', 'mic'];
 // Opcional: com uma chave da YouTube Data API v3 dá para pedir música pelo nome (!tocar nome).
 // Sem chave, os pedidos funcionam com link do YouTube ou do Spotify.
@@ -417,7 +407,7 @@ const audios = new Map();         // id -> <audio> do microfone
 let focusId = null;
 const chats = {}, unread = {};
 CHATS.forEach(c => { chats[c.id] = []; unread[c.id] = 0; });
-let curChat = 'c1';
+let curChat = 'geral';
 let statusText = 'Conectando...';
 let music = {};                 // sala -> música tocando
 let clockOffset = 0;
@@ -483,7 +473,8 @@ function startHub() {
     conn.on('open', () => {
       hub.conns.set(conn.peer, { conn, id: conn.peer, name: clean(conn.metadata && conn.metadata.name) || 'Convidado', room: null, seq: 0, screen: false, cam: false, mic: false, seen: Date.now(), avatar: '' });
       const map = {}; hub.conns.forEach(x => { if (x.avatar) map[x.id] = x.avatar; });
-      try { conn.send({ t: 'history', chats: hub.chats }); conn.send({ t: 'avatars', map }); hubBroadcast(); } catch (e) {}
+      const pub = {}; Object.keys(hub.chats).forEach(k => { if (!isPriv(k)) pub[k] = hub.chats[k]; });
+      try { conn.send({ t: 'history', chats: pub }); conn.send({ t: 'avatars', map }); hubBroadcast(); } catch (e) {}
     });
     conn.on('data', d => hubData(conn.peer, d));
     conn.on('close', () => { if (hub.conns.delete(conn.peer)) hubBroadcast(); });
@@ -519,7 +510,10 @@ function hubData(id, d) {
       return;
     }
     m.room = r.id; m.seq = ++hub.seq;
-    try { m.conn.send({ t: 'moved', room: r.id }); } catch (e) {}
+    try {
+      if (r.max) m.conn.send({ t: 'history', chats: { [r.id]: hub.chats[r.id] } });
+      m.conn.send({ t: 'moved', room: r.id });
+    } catch (e) {}
     hubBroadcast();
   } else if (d.t === 'state') {
     m.screen = !!d.screen; m.cam = !!d.cam; m.mic = !!d.mic;
@@ -527,10 +521,16 @@ function hubData(id, d) {
   } else if (d.t === 'msg') {
     const arr = hub.chats[d.ch];
     const text = String(d.text || '').slice(0, 1000).trim();
-    if (!arr || !text) return;
+    const img = typeof d.img === 'string' && d.img.startsWith('data:image/') && d.img.length < 700000 ? d.img : '';
+    if (!arr || (!text && !img)) return;
+    if (isPriv(d.ch) && m.room !== d.ch) return;      // chat da privada só para quem está nela
     const msg = { name: m.name, uid: m.id, text, ts: Date.now() };
+    if (img) msg.img = img;
     arr.push(msg); if (arr.length > 200) arr.shift();
-    hub.conns.forEach(x => { try { x.conn.send({ t: 'msg', ch: d.ch, m: msg }); } catch (e) {} });
+    // guarda só as 15 imagens mais recentes de cada chat para não pesar
+    let n = 0;
+    for (let i = arr.length - 1; i >= 0; i--) if (arr[i].img && ++n > 15) { delete arr[i].img; arr[i].expired = true; }
+    hub.conns.forEach(x => { if (isPriv(d.ch) && x.room !== d.ch) return; try { x.conn.send({ t: 'msg', ch: d.ch, m: msg }); } catch (e) {} });
   }
 }
 
@@ -573,7 +573,7 @@ function onHubData(d) {
   if (!d) return;
   lastHub = Date.now();
   if (d.t === 'history') {
-    CHATS.forEach(c => { chats[c.id] = (d.chats && d.chats[c.id]) || []; });
+    Object.keys(d.chats || {}).forEach(k => { if (chats[k]) chats[k] = d.chats[k] || []; });
     renderChat();
   } else if (d.t === 'msg') {
     const arr = chats[d.ch];
@@ -581,7 +581,7 @@ function onHubData(d) {
     arr.push(d.m); if (arr.length > 200) arr.shift();
     if (d.ch === curChat) { appendMsg(d.m); if (!chatVisible()) unread[d.ch]++; }
     else unread[d.ch]++;
-    renderNav(); renderTabs();
+    renderNav();
   } else if (d.t === 'avatars') {
     Object.entries(d.map || {}).forEach(([id, data]) => avatars.set(id, data));
     renderAll(); renderChat();
@@ -599,6 +599,7 @@ function onHubData(d) {
     renderAll();
   } else if (d.t === 'moved') {
     if (d.room !== myRoom) { leaveRoomMedia(); myRoom = d.room; syncMusic(); }
+    if (curChat !== 'musica') { curChat = d.room; unread[d.room] = 0; renderChat(); }
     renderAll();
   } else if (d.t === 'denied') {
     toast('Essa sala privada já tem 2 pessoas.');
@@ -609,7 +610,6 @@ function joinRoom(id) {
   if (id === myRoom) return;
   const r = ROOMS.find(r => r.id === id);
   if (r.max && countIn(id) >= r.max) return toast('Essa sala privada já tem 2 pessoas.');
-  if (!myRoom) $('picker').classList.remove('open');
   if (!hubConn || !hubConn.open) return toast('Ainda conectando, tente em instantes.');
   send({ t: 'join', room: id });
   $('side').classList.remove('open');
@@ -1059,24 +1059,17 @@ function memberLine(m, size) {
 function renderNav() {
   const nav = $('nav');
   nav.innerHTML = '';
-  nav.appendChild(el('div', 'sec', 'Canais de texto'));
-  CHATS.forEach(c => {
-    const row = el('div', 'ch' + (curChat === c.id ? ' active' : ''));
-    row.appendChild(el('span', 'ico', c.id === 'musica' ? '♪' : '#'));
-    row.appendChild(el('span', 'nm', c.id === 'musica' ? 'pedir-música' : c.name.toLowerCase().replace(' ', '-')));
-    if (unread[c.id]) row.appendChild(el('span', 'badge', String(unread[c.id])));
-    row.onclick = () => selectChat(c.id);
-    nav.appendChild(row);
-  });
-  nav.appendChild(el('div', 'sec', 'Canais de voz'));
+  nav.appendChild(el('div', 'sec', 'Canais'));
   ROOMS.forEach(r => {
     const n = countIn(r.id);
     const full = r.max && n >= r.max && myRoom !== r.id;
-    const row = el('div', 'ch' + (myRoom === r.id ? ' active' : '') + (full ? ' full' : ''));
+    const row = el('div', 'ch' + ((myRoom === r.id || (!myRoom && curChat === r.id)) ? ' active' : '') + (full ? ' full' : ''));
     const ico = el('span', 'ico'); ico.innerHTML = r.max ? ICON.lock : ICON.speaker; row.appendChild(ico);
     row.appendChild(el('span', 'nm', r.name));
+    if (unread[r.id]) row.appendChild(el('span', 'badge', String(unread[r.id])));
     if (r.max) row.appendChild(el('span', 'tag', n + '/' + r.max));
-    row.onclick = () => joinRoom(r.id);
+    row.title = full ? 'Sala cheia' : 'Entrar na ' + r.name;
+    row.onclick = () => openChannel(r.id);
     nav.appendChild(row);
     const who = el('div', 'who');
     [...members.values()].filter(m => m.room === r.id).forEach(m => who.appendChild(memberLine(m, 26)));
@@ -1089,35 +1082,29 @@ function renderNav() {
     }
     if (who.children.length) nav.appendChild(who);
   });
+  nav.appendChild(el('div', 'sec', 'Música'));
+  const mrow = el('div', 'ch' + (curChat === 'musica' ? ' active' : ''));
+  mrow.appendChild(el('span', 'ico', '♪'));
+  mrow.appendChild(el('span', 'nm', 'pedir-música'));
+  if (unread.musica) mrow.appendChild(el('span', 'badge', String(unread.musica)));
+  mrow.onclick = () => selectChat('musica');
+  nav.appendChild(mrow);
   $('online').textContent = members.size ? members.size + ' em salas' : '...';
-  $('voiceRoom').textContent = myRoom ? ROOMS.find(r => r.id === myRoom).name : 'Nenhuma sala';
+  $('voiceRoom').textContent = myRoom ? ROOMS.find(r => r.id === myRoom).name : 'Clique num canal para entrar';
   $('voice').querySelector('b').textContent = myRoom ? 'Voz conectada' : 'Fora das salas';
-  renderPicker();
 }
 
-function renderPicker() {
-  const pk = $('picker');
-  pk.classList.toggle('open', !myRoom);
-  if (myRoom) return;
-  const list = $('pickList');
-  list.innerHTML = '';
-  ROOMS.forEach(r => {
-    const ppl = [...members.values()].filter(m => m.room === r.id);
-    const full = r.max && ppl.length >= r.max;
-    const card = el('div', 'room' + (full ? ' full' : ''));
-    const h = el('div', 'rh');
-    const ic = el('i'); ic.innerHTML = r.max ? ICON.lock : ICON.speaker; h.appendChild(ic.firstChild);
-    h.appendChild(el('span', null, r.name));
-    h.appendChild(el('small', null, r.max ? (full ? 'Cheia ' : '') + ppl.length + '/' + r.max : ppl.length + (ppl.length === 1 ? ' pessoa' : ' pessoas')));
-    card.appendChild(h);
-    const box = el('div', 'ppl');
-    if (!ppl.length) box.appendChild(el('span', 'vazia', 'Ninguém aqui ainda'));
-    ppl.forEach(m => { const d = el('div'); d.appendChild(avatarEl(m.id, m.name, 26)); d.append(m.name); box.appendChild(d); });
-    card.appendChild(box);
-    card.onclick = () => joinRoom(r.id);
-    list.appendChild(card);
-  });
+// clicar num canal: entra na sala de voz e abre o chat dela
+function openChannel(id) {
+  if (id !== myRoom) {
+    const r = ROOMS.find(r => r.id === id);
+    if (r.max && countIn(id) >= r.max) return toast('Essa sala privada já tem 2 pessoas.');
+    joinRoom(id);
+    if (r.max) return;              // privada: o chat abre quando a entrada for aceita
+  }
+  selectChat(id);
 }
+
 
 function renderMe() {
   const old = $('meAvatar');
@@ -1140,13 +1127,10 @@ function renderTop() {
 function renderTabs() {
   const box = $('tabs');
   box.innerHTML = '';
-  CHATS.forEach(c => {
-    const b = el('button', curChat === c.id ? 'active' : '', c.name);
-    b.type = 'button';
-    if (unread[c.id]) b.appendChild(el('span', 'badge', String(unread[c.id])));
-    b.onclick = () => selectChat(c.id);
-    box.appendChild(b);
-  });
+  const t = el('div', 'ct');
+  t.appendChild(el('i', null, curChat === 'musica' ? '♪' : '#'));
+  t.appendChild(el('span', null, curChat === 'musica' ? 'pedir-música' : 'chat da ' + CHATS.find(c => c.id === curChat).name));
+  box.appendChild(t);
   const x = el('button', null, '✕'); x.id = 'chatClose'; x.type = 'button';
   x.onclick = () => $('chat').classList.remove('open');
   box.appendChild(x);
@@ -1168,7 +1152,14 @@ function appendMsg(m) {
   const h = el('div', 'h'); h.appendChild(el('b', null, m.name));
   if (m.bot) h.appendChild(el('span', 'botag', 'BOT'));
   h.append(fmtTime(m.ts));
-  c.appendChild(h); c.appendChild(el('div', 'b', m.text));
+  c.appendChild(h);
+  if (m.text) c.appendChild(el('div', 'b', m.text));
+  if (m.img) {
+    const im = el('img', 'mimg'); im.src = m.img; im.alt = 'Imagem enviada por ' + m.name;
+    im.onload = () => { if (atBottom || isMe) box.scrollTop = box.scrollHeight; };
+    im.onclick = () => { $('lightbox').querySelector('img').src = m.img; $('lightbox').classList.add('open'); };
+    c.appendChild(im);
+  } else if (m.expired) c.appendChild(el('div', 'expired', 'Imagem antiga removida'));
   d.appendChild(c);
   box.appendChild(d);
   if (atBottom || isMe) box.scrollTop = box.scrollHeight;
@@ -1178,9 +1169,11 @@ function renderChat() {
   const box = $('msgs');
   box.innerHTML = '';
   box.dataset.last = '';
-  $('chatInput').placeholder = curChat === 'musica' ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar em ' + CHATS.find(c => c.id === curChat).name;
+  const nm = CHATS.find(c => c.id === curChat).name;
+  $('chatInput').placeholder = curChat === 'musica' ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar na ' + nm;
   const arr = chats[curChat];
-  if (!arr.length) box.appendChild(el('div', 'sys', 'Nenhuma mensagem ainda no ' + CHATS.find(c => c.id === curChat).name + '.'));
+  if (!arr.length) box.appendChild(el('div', 'sys', curChat === 'musica' ? 'Cole aqui um link do YouTube ou Spotify para tocar na sua sala.' : 'Nenhuma mensagem ainda na ' + nm + '.'));
+  renderTabs();
   arr.forEach(appendMsg);
   box.scrollTop = box.scrollHeight;
 }
@@ -1191,7 +1184,7 @@ function selectChat(id) {
   curChat = id; unread[id] = 0;
   $('side').classList.remove('open');
   $('chat').classList.add('open');
-  renderChat(); renderNav(); renderTabs();
+  renderChat(); renderNav();
   $('chatInput').focus();
 }
 
@@ -1200,6 +1193,7 @@ $('chatForm').onsubmit = e => {
   const text = $('chatInput').value.trim();
   if (!text) return;
   if (!hubConn || !hubConn.open) return toast('Ainda conectando, tente em instantes.');
+  if (isPriv(curChat) && myRoom !== curChat) return toast('Entre na sala privada para conversar nela.');
   send({ t: 'msg', ch: curChat, text });
   $('chatInput').value = '';
   if (curChat === 'musica') musicRequest(text);
@@ -1207,9 +1201,50 @@ $('chatForm').onsubmit = e => {
 
 function renderAll() { renderNav(); renderTop(); renderTabs(); syncParticipants(); }
 
+// reduz a imagem (até 1280px) antes de enviar
+function shrinkImage(file, maxDim, q) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onerror = rej;
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = rej;
+      img.onload = () => {
+        const k = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/jpeg', q));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+async function sendImage(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  if (!hubConn || !hubConn.open) return toast('Ainda conectando, tente em instantes.');
+  if (isPriv(curChat) && myRoom !== curChat) return toast('Entre na sala privada para conversar nela.');
+  let data;
+  try {
+    data = await shrinkImage(file, 1280, 0.8);
+    if (data.length > 650000) data = await shrinkImage(file, 900, 0.65);
+  } catch (e) { return toast('Não consegui abrir essa imagem.'); }
+  if (data.length > 690000) return toast('Imagem muito grande.');
+  const text = $('chatInput').value.trim();
+  send({ t: 'msg', ch: curChat, text, img: data });
+  $('chatInput').value = '';
+}
+$('attach').onclick = () => $('imgFile').click();
+$('imgFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; sendImage(f); };
+$('chatInput').addEventListener('paste', e => {
+  const it = [...(e.clipboardData || {}).items || []].find(i => i.type.startsWith('image/'));
+  if (it) { e.preventDefault(); sendImage(it.getAsFile()); }
+});
+$('lightbox').onclick = () => $('lightbox').classList.remove('open');
+
 /* ================= Outros botões ================= */
 $('sideBtn').onclick = () => $('side').classList.toggle('open');
-$('chatBtn').onclick = () => { $('chat').classList.toggle('open'); unread[curChat] = 0; renderNav(); renderTabs(); };
+$('chatBtn').onclick = () => { $('chat').classList.toggle('open'); unread[curChat] = 0; renderNav(); };
 $('copyBtn').onclick = async e => {
   const url = location.origin + location.pathname;
   try { await navigator.clipboard.writeText(url); e.target.textContent = 'Link copiado!'; }
