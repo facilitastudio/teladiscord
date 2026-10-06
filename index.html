@@ -888,7 +888,7 @@ const PUBLIC_ID = '00000000-0000-0000-0000-000000000001';           // servidor 
 const YT_API_KEY = '';   // opcional: chave da YouTube Data API v3 para !tocar nome
 const BOT = 'Bot de música';
 const KINDS = ['screen', 'cam', 'mic'];
-const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY, { realtime: { worker: true, heartbeatIntervalMs: 15000 } });
 
 /* ===================== Utilidades ===================== */
 const $ = id => document.getElementById(id);
@@ -1465,6 +1465,8 @@ async function onPresence() {
       if (!next.has(m.peer) || m.room) next.set(m.peer, { id: m.peer, uid: m.uid, room: m.room, seq: m.seq, screen: m.screen, cam: m.cam, mic: m.mic, deaf: !!m.deaf, relay: !!m.relay, nolk: !!m.nolk });
     });
   });
+  members.forEach((m, id) => { if (!next.has(id) && m.room) { ghosts.set(id, { m, at: Date.now() }); setTimeout(() => { const g = ghosts.get(id); if (g && Date.now() - g.at >= GHOST_MS) { ghosts.delete(id); syncMedia(); } }, GHOST_MS + 300); } });
+  next.forEach((m, id) => ghosts.delete(id));
   members = next;
   roomSounds();
   await ensureProfiles([...members.values()].map(m => m.uid));
@@ -1506,16 +1508,25 @@ function bootPeer() {
     setTimeout(() => { if (!done) { done = true; res(); } }, 8000);
   }).then(() => { if (!peerId) peerId = 'x' + rnd() + rnd(); });
 }
-const roomPeers = () => [...members.values()].filter(m => m.room && m.room === myRoom && m.id !== peerId);
+// quem sumiu da lista por um instante (queda rápida da conexão) continua contando por alguns segundos
+const ghosts = new Map(); // peer -> { m, at }
+const GHOST_MS = 15000;
+const roomPeers = (withGhosts = true) => {
+  const list = [...members.values()].filter(m => m.room && m.room === myRoom && m.id !== peerId);
+  if (withGhosts) ghosts.forEach((g, id) => { if (!members.has(id) && g.m.room === myRoom && Date.now() - g.at < GHOST_MS) list.push(g.m); });
+  return list;
+};
 const labelFor = (uid, k) => k === 'screen' ? dn(uid) + ' · tela' : dn(uid);
 function syncMedia() {
   const mode = roomMode();
-  if (mode === 'lk') { closeP2P(); lkSync(); }
-  else { if (lk) lkLeave(); if (!peer) { if (myRoom && roomPeers().length && !lkBroken && !needRelay) setRelay(); return; } }
+  const viaLk = mode === 'lk' && !!(lk && lk.room && lk.target === myRoom);
+  if (mode === 'lk') { if (viaLk) closeP2P(); lkSync(); }
+  else if (lk) lkLeave();
+  if (!viaLk && !peer) { if (myRoom && roomPeers().length) setRelay(); return; }
   const peers = roomPeers();
   const pm = new Map(peers.map(m => [m.id, m]));
   const want = new Set();
-  if (mode === 'p2p') peers.forEach(m => KINDS.forEach(k => {
+  if (!viaLk) peers.forEach(m => KINDS.forEach(k => {
     if (!local[k]) return;
     const key = m.id + ':' + k + ':' + m.seq;
     want.add(key);
@@ -1523,11 +1534,11 @@ function syncMedia() {
     const c = peer.call(m.id, local[k], { metadata: { kind: k } });
     if (!c) return;
     outCalls.set(key, c);
-    c.on('close', () => { if (outCalls.get(key) === c) outCalls.delete(key); });
+    c.on('close', () => { if (outCalls.get(key) === c) { outCalls.delete(key); setTimeout(syncMedia, 1500); } }); // caiu sozinha: liga de novo
     c.on('error', () => {});
   }));
   outCalls.forEach((c, key) => { if (!want.has(key)) { try { c.close(); } catch (e) {} outCalls.delete(key); } });
-  if (mode === 'p2p') inCalls.forEach((c, key) => { const [id, k] = key.split(':'); const m = pm.get(id); if (!m || !m[k]) { inCalls.delete(key); try { c.close(); } catch (e) {} dropRemote(id, k); } });
+  if (!viaLk) inCalls.forEach((c, key) => { const [id, k] = key.split(':'); const m = pm.get(id); if (!m || !m[k]) { inCalls.delete(key); try { c.close(); } catch (e) {} dropRemote(id, k); } });
   tiles.forEach((t, key) => {
     if (key.startsWith('me:') || key.startsWith('p:')) return;
     const [id, k] = key.split(':'); const m = pm.get(id);
@@ -1545,8 +1556,8 @@ function leaveRoomMedia() {
 }
 function onCall(call) {
   if (call.metadata && call.metadata.dm) return onDmMedia(call);
-  // sala usando o servidor: não aceita conexão direta
-  if (roomMode() === 'lk') { try { call.close(); } catch (e) {} return; }
+  // sala já conectada pelo servidor: não aceita conexão direta
+  if (lk && lk.room && lk.target === myRoom) { try { call.close(); } catch (e) {} return; }
   const k = (call.metadata && call.metadata.kind) || 'screen';
   const key = call.peer + ':' + k;
   const old = inCalls.get(key);
@@ -3188,14 +3199,17 @@ const RELAY_MIN = 5;
 let needRelay = false, lkBroken = false, lk = null, lkBusy = false, lkAgain = false;
 const expectSince = new Map();
 const lkRemote = new Map(); // "peer:screen" -> MediaStream (vídeo + som da tela)
+let lkAvailable = null; // null = ainda não sei
+fetch(SUPA_URL + '/functions/v1/livekit-token', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY }, body: '{}' })
+  .then(r => { lkAvailable = r.status !== 503 && r.status !== 404; }).catch(() => { lkAvailable = false; });
 function roomMode() {
-  if (!myRoom) return 'p2p';
+  if (!myRoom || !lkAvailable) return 'p2p';
   const ms = [...members.values()].filter(m => m.room === myRoom);
   if (lkBroken || ms.some(m => m.nolk)) return 'p2p';
   return (needRelay || ms.length >= RELAY_MIN || ms.some(m => m.relay)) ? 'lk' : 'p2p';
 }
 function setRelay() {
-  if (needRelay || lkBroken || !myRoom) return;
+  if (needRelay || lkBroken || !myRoom || !lkAvailable) return;
   needRelay = true; trackMe(); syncMedia(); renderAll();
 }
 function closeP2P() {
@@ -3275,7 +3289,7 @@ async function lkSync() {
           syncMedia(); renderAll(); break;
         }
         if (lk !== me0) { try { me0.room.disconnect(); } catch (e) {} break; }
-        renderAll();
+        setTimeout(syncMedia, 0); renderAll();
       }
       await lkPublish(lk.room, lk.pubs, local);
     } while (lkAgain);
@@ -3310,13 +3324,20 @@ function lkLeave() {
 }
 // vigia a conexão direta: se falhar, pede o servidor
 setInterval(() => {
-  if (!myRoom || roomMode() !== 'p2p' || lkBroken || needRelay) { expectSince.clear(); return; }
+  if (!myRoom) { expectSince.clear(); return; }
   const now = Date.now();
+  // conexão direta travada em "desconectado": fecha e liga de novo
+  outCalls.forEach(c => {
+    const pc = c.peerConnection; if (!pc) return;
+    if (pc.iceConnectionState === 'disconnected') { c._dcAt = c._dcAt || now; if (now - c._dcAt > 8000) { try { c.close(); } catch (e) {} } }
+    else c._dcAt = 0;
+  });
+  if (roomMode() !== 'p2p' || lkBroken || needRelay || !lkAvailable) { expectSince.clear(); return; }
   for (const c of [...outCalls.values(), ...inCalls.values()]) {
     const pc = c.peerConnection; if (pc && pc.iceConnectionState === 'failed') { setRelay(); toast('A conexão direta falhou. Usando o servidor do Skipper.'); return; }
   }
   const live = new Set();
-  roomPeers().forEach(m => ['mic', 'cam', 'screen'].forEach(k => {
+  roomPeers(false).forEach(m => ['mic', 'cam', 'screen'].forEach(k => {
     if (!m[k]) return;
     const key = m.id + ':' + k + ':' + m.seq; live.add(key);
     const got = k === 'mic' ? audios.has(m.id) : tiles.has(m.id + ':' + k);
