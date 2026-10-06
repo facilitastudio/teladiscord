@@ -3,82 +3,104 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tela Compartilhada</title>
+<title>xcordbr</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
-  :root{--rail:#1e1f22;--side:#2b2d31;--bg:#313338;--card:#383a40;--hover:#35373c;--sel:#404249;--line:#26272b;--input:#1e1f22;--txt:#f2f3f5;--soft:#dbdee1;--mut:#949ba4;--acc:#5b67f1;--red:#f23f43;--green:#23a55a}
+  :root{--rail:#1e1f22;--side:#2b2d31;--bg:#313338;--card:#383a40;--hover:#35373c;--sel:#404249;--line:#26272b;--input:#1e1f22;--txt:#f2f3f5;--soft:#dbdee1;--mut:#949ba4;--acc:#5b67f1;--red:#f23f43;--green:#23a55a;--pop:#111214}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:var(--bg);color:var(--txt);font:14px/1.4 "gg sans","Noto Sans",system-ui,-apple-system,"Segoe UI",sans-serif;height:100vh;height:100dvh;overflow:hidden}
   button{font:inherit;font-weight:600;color:var(--txt);cursor:pointer;background:var(--card);border:0;border-radius:8px;padding:8px 14px}
   button:hover{filter:brightness(1.12)}
+  button:disabled{opacity:.5;cursor:default}
   button.primary{background:var(--acc)}
+  button.danger{background:var(--red)}
+  button.ghost{background:transparent;color:var(--soft)}
+  input,textarea,select{font:inherit;color:var(--txt);background:var(--input);border:0;border-radius:6px;padding:10px 12px;outline:none;width:100%}
+  textarea{resize:vertical;min-height:80px}
   svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+  a{color:#00a8fc;cursor:pointer;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .lbl{font-size:12px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.02em;margin-bottom:-4px}
+  .hint{font-size:12px;color:var(--mut)}
+  .err{color:var(--red);font-size:13px;min-height:16px}
 
-  /* avatares */
-  .av{border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex-shrink:0;background-size:cover;background-position:center;transition:box-shadow .12s}
+  .av{border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex-shrink:0;background-size:cover;background-position:center;transition:box-shadow .12s;cursor:pointer}
   .av.speaking{box-shadow:0 0 0 2px var(--side),0 0 0 4px var(--green)}
 
-  /* entrada */
-  #gate{position:fixed;inset:0;background:linear-gradient(135deg,#3a3f8f,#1e1f22 70%);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
-  #gate form{width:100%;max-width:420px;background:var(--bg);border-radius:10px;padding:32px;display:flex;flex-direction:column;gap:14px;box-shadow:0 10px 50px rgba(0,0,0,.45)}
-  #gate h1{font-size:24px;text-align:center}
-  #gate p{font-size:15px;color:var(--mut);text-align:center;margin-top:-6px}
-  #gate .lbl{font-size:12px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.02em}
-  #gate input[type=text],#gate input[type=password]{background:var(--input);border:0;border-radius:6px;padding:12px;color:var(--txt);font:16px inherit;outline:none;width:100%}
-  .pick{display:flex;align-items:center;gap:14px;cursor:pointer}
-  #gatePrev{width:64px;height:64px;font-size:26px;background:var(--card);color:var(--mut);border:2px dashed #55575e}
-  .pick span{color:var(--soft);font-size:14px}
-  .pick small{display:block;color:var(--mut);font-size:12px}
-  #gateErr{color:var(--red);font-size:13px;min-height:16px}
-  #gate button{padding:12px;font-size:15px}
+  #auth{position:fixed;inset:0;background:linear-gradient(135deg,#3a3f8f,#1e1f22 70%);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20;overflow:auto}
+  #auth .card{width:100%;max-width:440px;background:var(--bg);border-radius:10px;padding:32px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 50px rgba(0,0,0,.45);margin:auto}
+  #auth h1{font-size:24px;text-align:center}
+  #auth .sub{font-size:15px;color:var(--mut);text-align:center;margin-top:-6px}
+  #auth .view{display:none;flex-direction:column;gap:12px}
+  #auth .view.on{display:flex}
+  #auth .big{padding:12px;font-size:15px}
+  #auth .row{display:flex;gap:8px}
+  #auth .row button{flex:1}
+  .invite{background:var(--side);border-radius:8px;padding:12px;text-align:center;display:none}
+  .invite b{display:block;font-size:17px}
+  .brandlogo{text-align:center;font-weight:800;font-size:28px;letter-spacing:-.5px}
+  .brandlogo span{color:var(--acc)}
 
-  /* estrutura */
   #app{display:none;height:100%;grid-template-columns:260px minmax(0,1fr) 340px}
 
-  /* trilho de servidores */
-
-  /* barra lateral */
-  #side{background:var(--side);display:flex;flex-direction:column;min-height:0}
-  .brand{height:48px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px;box-shadow:0 1px 0 rgba(0,0,0,.25);flex-shrink:0}
-  .brand small{font-weight:500;font-size:12px;color:var(--mut)}
+  #side{background:var(--side);display:flex;flex-direction:column;min-height:0;position:relative}
+  #srvBtn{height:48px;padding:0 16px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;box-shadow:0 1px 0 rgba(0,0,0,.25);flex-shrink:0;background:transparent;border-radius:0;width:100%;text-align:left}
+  #srvBtn:hover{background:var(--hover);filter:none}
+  #srvBtn span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #srvMenu{position:absolute;top:52px;left:8px;right:8px;background:var(--pop);border-radius:8px;padding:6px;z-index:9;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);max-height:70vh;overflow:auto}
+  #srvMenu.open{display:block}
+  .mi{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;cursor:pointer;color:var(--soft);font-weight:500}
+  .mi:hover{background:var(--acc);color:#fff}
+  .mi.cur{background:var(--sel);color:#fff}
+  .mi .si{width:28px;height:28px;border-radius:9px;background:var(--card);display:grid;place-items:center;font-weight:800;font-size:12px;color:#fff;flex-shrink:0}
+  .mi.red{color:var(--red)}
+  .mi.red:hover{background:var(--red);color:#fff}
+  .msep{height:1px;background:var(--line);margin:6px 4px}
+  .mlab{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;padding:6px 10px 2px}
   #nav{flex:1;overflow-y:auto;padding:8px}
-  .sec{font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--mut);padding:16px 8px 4px;text-transform:uppercase}
+  .sec{font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--mut);padding:16px 8px 4px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between}
+  .sec button{background:transparent;padding:0 4px;color:var(--mut);font-size:18px;line-height:1}
   .ch{display:flex;align-items:center;gap:6px;padding:6px 8px;margin:1px 0;border-radius:4px;cursor:pointer;color:var(--mut);user-select:none}
   .ch:hover{background:var(--hover);color:var(--soft)}
   .ch.active{background:var(--sel);color:#fff}
   .ch.full{opacity:.45;cursor:not-allowed}
+  .ch.unread .nm{color:#fff;font-weight:700}
   .ch .ico{width:20px;display:grid;place-items:center;font-size:18px;font-weight:500;color:var(--mut)}
   .ch .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
   .ch .tag{font-size:11px;color:var(--mut);background:var(--rail);padding:1px 6px;border-radius:8px}
   .badge{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:0 6px;line-height:16px}
   .who{padding:0 0 4px 30px;display:flex;flex-direction:column}
-  .who > div{display:flex;gap:10px;align-items:center;padding:6px 8px;margin:2px 0;border-radius:4px;color:var(--mut);font-size:14px}
+  .who > div{display:flex;gap:10px;align-items:center;padding:6px 8px;margin:2px 0;border-radius:4px;color:var(--mut);font-size:14px;cursor:pointer}
   .who > div:hover{background:var(--hover);color:var(--soft)}
   .who .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .who svg{width:15px;height:15px;color:var(--mut)}
   .who svg.off{color:var(--red)}
   .st{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--rail);color:var(--soft);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
   .st.live{background:var(--red);color:#fff}
-  #voice{background:#232428;padding:8px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+  .dmrow{display:flex;align-items:center;gap:10px;padding:6px 8px;margin:1px 0;border-radius:4px;cursor:pointer;color:var(--mut)}
+  .dmrow:hover{background:var(--hover);color:var(--soft)}
+  .dmrow.active{background:var(--sel);color:#fff}
+  .dmrow .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+  #voice{background:#232428;padding:8px 10px;display:none;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+  #voice.on{display:flex}
   #voice b{color:var(--green);font-size:13px;display:block}
-  #voice small{color:var(--mut);font-size:12px}
-  .me{background:#232428;padding:8px;display:flex;align-items:center;gap:8px}
+  #voice small{color:var(--mut);font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .me{background:#232428;padding:8px;display:flex;align-items:center;gap:6px}
   .me .meinfo{flex:1;min-width:0;cursor:pointer;padding:2px 4px;border-radius:4px}
-  .me .meinfo:hover,.me #meAvatar:hover{background-color:var(--hover)}
+  .me .meinfo:hover{background-color:var(--hover)}
   .me b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
-  .me small{display:block;color:var(--mut);font-size:12px}
-  #meAvatar{width:32px;height:32px;font-size:14px;cursor:pointer}
-  .ib{width:32px;height:32px;padding:0;display:grid;place-items:center;background:transparent;color:var(--soft);border-radius:4px}
-  .ib:hover{background:var(--hover)}
+  .me small{display:block;color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ib{width:32px;height:32px;padding:0;display:grid;place-items:center;background:transparent;color:var(--soft);border-radius:4px;flex-shrink:0}
+  .ib:hover{background:var(--hover);filter:none}
   .ib.off{color:var(--red)}
 
-  /* área principal */
   #main{display:flex;flex-direction:column;min-width:0;min-height:0;background:#000}
   .top{height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;background:var(--bg);box-shadow:0 1px 0 rgba(0,0,0,.25);flex-shrink:0;z-index:2}
   .top .t{display:flex;align-items:center;gap:8px;min-width:0}
   .top .t svg{color:var(--mut)}
-  .top h2{font-size:15px;white-space:nowrap}
+  .top h2{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .top small{color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid #4e5058;padding-left:10px;margin-left:4px}
   .top .r{display:flex;gap:8px;flex-shrink:0}
   .top .r button{padding:6px 12px;font-size:13px}
@@ -100,8 +122,8 @@
   .tile .bar span svg{width:14px;height:14px;color:var(--red)}
   .tile .bar div{display:flex;gap:6px;pointer-events:auto}
   .tile .bar button{padding:4px 9px;font-size:12px;background:rgba(0,0,0,.6)}
-  #empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--mut);padding:20px}
-  #empty b{display:block;color:var(--txt);font-size:18px;margin-bottom:6px}
+  #empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--mut);padding:20px;gap:6px}
+  #empty b{display:block;color:var(--txt);font-size:18px}
   #strip{display:none;gap:8px;overflow-x:auto;overflow-y:hidden;min-height:0}
   #grid.focus:not(.solo) #strip{display:flex}
   #strip .tile{flex:0 0 auto;height:100%;aspect-ratio:16/9}
@@ -114,10 +136,24 @@
   .rb.on{background:var(--green);color:#fff}
   .rb.live{background:var(--acc);color:#fff}
   .rb.mut{color:var(--red)}
+  .rb.leave{background:var(--red);color:#fff}
   .rb[data-tip]{position:relative}
-  .rb[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#111214;color:#dbdee1;font-size:13px;font-weight:600;padding:6px 10px;border-radius:5px;white-space:nowrap;pointer-events:none}
+  .rb[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--pop);color:#dbdee1;font-size:13px;font-weight:600;padding:6px 10px;border-radius:5px;white-space:nowrap;pointer-events:none}
 
-  /* música */
+  #friendsView{flex:1;min-height:0;display:none;flex-direction:column;background:var(--bg)}
+  .ftabs{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .ftabs button{background:transparent;color:var(--mut);padding:4px 10px;font-weight:500}
+  .ftabs button.on{background:var(--sel);color:#fff}
+  .ftabs button.add{background:var(--green);color:#fff}
+  .ftabs button.add.on{background:transparent;color:var(--green)}
+  #fbody{flex:1;overflow:auto;padding:16px}
+  .frow{display:flex;align-items:center;gap:12px;padding:10px;border-top:1px solid var(--line);border-radius:6px}
+  .frow:hover{background:var(--hover)}
+  .frow .n{flex:1;min-width:0}
+  .frow .n b{display:block}
+  .frow .n small{color:var(--mut)}
+  .frow button{padding:6px 12px;font-size:13px}
+
   #np{display:none;align-items:center;gap:12px;margin:0 12px 6px;padding:8px 12px;background:var(--side);border-radius:8px;flex-shrink:0}
   #ytBox{display:none;width:128px;height:72px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#000}
   #ytBox iframe{width:128px;height:72px;display:block;pointer-events:none}
@@ -125,98 +161,190 @@
   #np .info{flex:1;min-width:0}
   #np .info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #np .info small{color:var(--mut);font-size:12px}
-  #npVol{width:110px;accent-color:var(--acc)}
+  #npVol{width:110px;accent-color:var(--acc);padding:0;background:transparent}
 
-  /* chat */
   #chat{background:var(--bg);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
   .tabs{height:48px;display:flex;gap:8px;padding:0 16px;box-shadow:0 1px 0 rgba(0,0,0,.25);align-items:center;flex-shrink:0}
   .tabs .ct{flex:1;display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;min-width:0}
   .tabs .ct span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tabs .ct i{font-style:normal;color:var(--mut);font-size:20px;font-weight:500}
-  .mimg{display:block;max-width:min(100%,320px);max-height:300px;border-radius:8px;margin-top:6px;cursor:zoom-in}
-  .expired{color:var(--mut);font-style:italic;font-size:12px}
-  #attach{width:40px;height:40px;padding:0;display:grid;place-items:center;background:var(--card);color:var(--soft);border-radius:8px;flex-shrink:0}
-  #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:40;cursor:zoom-out;padding:24px}
-  #lightbox.open{display:flex}
-  #lightbox img{max-width:100%;max-height:100%;border-radius:6px}
-  .ch .sub{padding-left:28px;font-size:13px}
-  .tabs button{flex:1;padding:6px 4px;font-size:13px;position:relative;background:transparent;color:var(--mut);font-weight:500}
-  .tabs button:hover{background:var(--hover);color:var(--soft);filter:none}
-  .tabs button.active{background:var(--sel);color:#fff}
-  .tabs .badge{position:absolute;top:-4px;right:-2px}
   #chatClose{flex:0 0 auto;display:none}
   #msgs{flex:1;overflow-y:auto;padding:12px 0;display:flex;flex-direction:column}
-  .msg{display:flex;gap:12px;padding:2px 14px;margin-top:14px}
+  .msg{display:flex;gap:12px;padding:2px 14px;margin-top:14px;position:relative}
   .msg:hover{background:#2e3035}
   .msg.cont{margin-top:0}
   .msg .av{width:38px;height:38px;font-size:15px;margin-top:2px}
   .msg.cont .av{visibility:hidden;height:0}
   .msg .c{min-width:0;flex:1}
   .msg .h{font-size:12px;color:var(--mut)}
-  .msg .h b{color:var(--txt);margin-right:6px;font-size:15px;font-weight:600}
+  .msg .h b{color:var(--txt);margin-right:6px;font-size:15px;font-weight:600;cursor:pointer}
+  .msg .h b:hover{text-decoration:underline}
   .msg.cont .h{display:none}
   .msg .b{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.4;color:var(--soft)}
   .msg.bot .h b{color:#8d96ff}
   .msg .botag{background:var(--acc);color:#fff;font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;margin-right:6px;vertical-align:1px}
+  .msg .del{position:absolute;right:10px;top:0;display:none;background:var(--card);padding:2px 6px;font-size:12px;color:var(--red)}
+  .msg:hover .del{display:block}
+  .mimg{display:block;max-width:min(100%,320px);max-height:300px;border-radius:8px;margin-top:6px;cursor:zoom-in}
   .sys{color:var(--mut);font-size:13px;text-align:center;margin:auto 16px}
   #chatForm{display:flex;gap:6px;padding:0 12px 16px}
-  #chatInput{flex:1;min-width:0;background:var(--card);border:0;border-radius:8px;padding:11px 14px;color:var(--txt);font:inherit;outline:none}
-  #chatForm button[type=submit]{display:none}
+  #chatInput{flex:1;min-width:0;background:var(--card);border-radius:8px;padding:11px 14px}
+  #attach{width:40px;height:40px;padding:0;display:grid;place-items:center;background:var(--card);color:var(--soft);border-radius:8px;flex-shrink:0}
 
-  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111214;padding:10px 16px;border-radius:8px;font-size:13px;z-index:30;display:none;max-width:90%;box-shadow:0 8px 24px rgba(0,0,0,.4)}
-  #devPanel{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));background:#111214;border-radius:8px;padding:16px;display:none;flex-direction:column;gap:12px;z-index:8;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;padding:16px;z-index:30}
+  #modal.open{display:flex}
+  #modal .box{width:100%;max-width:480px;max-height:90vh;overflow:auto;background:var(--bg);border-radius:10px;box-shadow:0 10px 50px rgba(0,0,0,.5)}
+  #modal .box.wide{max-width:860px}
+  #modal .mh{padding:20px 20px 0;display:flex;align-items:center;gap:10px}
+  #modal .mh h3{flex:1;font-size:20px}
+  #modal .mb{padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+  #modal .mf{padding:14px 20px;background:var(--side);display:flex;justify-content:flex-end;gap:8px;border-radius:0 0 10px 10px}
+  .copyrow{display:flex;gap:8px}
+  .copyrow input{flex:1}
+  .chedit{display:flex;gap:8px;align-items:center}
+  .chedit input{flex:1}
+  .chedit select{width:120px}
+  .chedit button{padding:8px 10px}
+  .pcard{background:var(--pop);border-radius:10px;overflow:hidden;width:300px}
+  .pcard .ban{height:60px}
+  .pcard .pav{margin:-38px 0 0 16px;border:6px solid var(--pop);border-radius:50%;width:max-content}
+  .pcard .pb{padding:8px 16px 16px;display:flex;flex-direction:column;gap:6px}
+  .pcard .pb b{font-size:20px}
+  .pcard .pb .u{color:var(--soft);font-size:14px}
+  .pcard .pb .bio{background:var(--bg);border-radius:8px;padding:10px;color:var(--soft);white-space:pre-wrap;font-size:13px;margin-top:4px}
+  .pcard .pb .acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .pcard .pb .acts button{flex:1;padding:7px 8px;font-size:13px}
+  #pop{position:fixed;z-index:25;display:none;box-shadow:0 8px 30px rgba(0,0,0,.6);border-radius:10px}
+  #pop.open{display:block}
+  .admrow{display:flex;align-items:center;gap:10px;padding:8px;border-top:1px solid var(--line)}
+  .admrow .n{flex:1;min-width:0}
+  .admrow .n small{display:block;color:var(--mut);font-size:12px}
+  .admrow button{padding:6px 10px;font-size:12px}
+  .rep{border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px}
+  .rep.done{opacity:.55}
+  .rep img,.rep video{max-width:100%;max-height:320px;border-radius:6px}
+  .rep .acts{display:flex;gap:6px;flex-wrap:wrap}
+  .rep .acts button{padding:6px 10px;font-size:12px}
+  .rep .b{white-space:pre-wrap}
+  .pill{font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--red);color:#fff}
+  .pill.ok{background:var(--green)}
+
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--pop);padding:10px 16px;border-radius:8px;font-size:13px;z-index:40;display:none;max-width:90%;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  #devPanel{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));background:var(--pop);border-radius:8px;padding:16px;display:none;flex-direction:column;gap:12px;z-index:8;box-shadow:0 12px 40px rgba(0,0,0,.5)}
   #devPanel.open{display:flex}
   #devPanel label{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--mut);display:flex;flex-direction:column;gap:6px}
-  #devPanel select{background:var(--input);color:var(--txt);border:0;border-radius:4px;padding:10px;font:inherit;text-transform:none;outline:none;width:100%}
+  #devPanel select{text-transform:none}
   #devPanel p{font-size:12px;color:var(--mut)}
   #sound{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:30;display:none}
+  #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:45;cursor:zoom-out;padding:24px}
+  #lightbox.open{display:flex}
+  #lightbox img{max-width:100%;max-height:100%;border-radius:6px}
 
   .mob{display:none}
   @media (max-width:1200px){
     #app{grid-template-columns:240px minmax(0,1fr)}
-    #chat{position:fixed;top:0;right:0;bottom:0;width:min(340px,100%);z-index:10;transform:translateX(100%);transition:transform .2s}
+    #chat{position:fixed;top:0;right:0;bottom:0;width:min(360px,100%);z-index:10;transform:translateX(100%);transition:transform .2s}
     #chat.open{transform:none}
     #chatClose,.chatbtn{display:inline-block}
   }
   @media (max-width:760px){
     #app{grid-template-columns:minmax(0,1fr)}
-    #side{position:fixed;top:0;left:0;bottom:0;width:min(280px,85%);z-index:10;transform:translateX(-100%);transition:transform .2s}
+    #side{position:fixed;top:0;left:0;bottom:0;width:min(290px,88%);z-index:10;transform:translateX(-100%);transition:transform .2s}
     #side.open{transform:none}
     .sidebtn{display:inline-block}
-    #copyBtn,.top small{display:none}
+    .top small{display:none}
   }
 </style>
 </head>
 <body>
-<div id="gate">
-  <form id="gateForm" autocomplete="off">
-    <h1>Bem-vindo!</h1>
-    <p>Escolha como quer aparecer e digite o código de acesso.</p>
-    <label class="pick" title="Escolher foto">
-      <div class="av" id="gatePrev">+</div>
-      <span>Foto de perfil<small>Opcional. Clique para escolher.</small></span>
-      <input type="file" id="gateFile" accept="image/*" hidden>
-    </label>
-    <div class="lbl">Seu nome</div>
-    <input id="nameInput" type="text" maxlength="24" autofocus>
-    <div class="lbl">Código de acesso</div>
-    <input id="gateInput" type="password">
-    <div id="gateErr"></div>
-    <button class="primary" type="submit">Entrar</button>
-  </form>
+
+<div id="auth">
+  <div class="card">
+    <div class="brandlogo">x<span>cord</span>br</div>
+    <div class="invite" id="authInvite"></div>
+
+    <div class="view on" data-v="login">
+      <h1>Que bom te ver!</h1>
+      <div class="sub">Entre com seu usuário e senha.</div>
+      <div class="lbl">Usuário</div>
+      <input id="liUser" autocomplete="username" autocapitalize="off">
+      <div class="lbl">Senha</div>
+      <input id="liPass" type="password" autocomplete="current-password">
+      <a id="toForgot" style="font-size:13px">Esqueceu a senha?</a>
+      <button class="primary big" id="liBtn">Entrar</button>
+      <div class="hint">Precisa de uma conta? <a id="toSignup">Cadastre-se</a></div>
+    </div>
+
+    <div class="view" data-v="signup1">
+      <h1>Criar conta</h1>
+      <div class="lbl">Usuário</div>
+      <input id="suUser" maxlength="20" autocomplete="username" autocapitalize="off">
+      <div class="hint">De 3 a 20 caracteres: letras minúsculas, números, ponto ou _. É com ele que você entra e que te acham para adicionar.</div>
+      <div class="lbl">Nome de exibição</div>
+      <input id="suName" maxlength="32" placeholder="Opcional">
+      <div class="lbl">Senha</div>
+      <input id="suPass" type="password" autocomplete="new-password">
+      <div class="lbl">Confirmar senha</div>
+      <input id="suPass2" type="password" autocomplete="new-password">
+      <button class="primary big" id="su1Btn">Continuar</button>
+      <div class="hint">Já tem uma conta? <a class="toLogin">Entrar</a></div>
+    </div>
+
+    <div class="view" data-v="signup2">
+      <h1>Recuperação de senha</h1>
+      <div class="sub">Vai querer redefinir sua senha se esquecer?</div>
+      <div class="hint" style="text-align:center">Se sim, digite seu email. Se não, é só avançar.</div>
+      <div class="lbl">Email</div>
+      <input id="suEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com">
+      <div class="row">
+        <button id="suSkip">Avançar sem email</button>
+        <button class="primary" id="suWithEmail">Criar com email</button>
+      </div>
+      <a class="toSignup1" style="font-size:13px">Voltar</a>
+    </div>
+
+    <div class="view" data-v="forgot">
+      <h1>Esqueceu a senha?</h1>
+      <div class="sub">Digite o email que você cadastrou. Vamos mandar um link para criar uma senha nova.</div>
+      <div class="lbl">Email</div>
+      <input id="fgEmail" type="email" autocomplete="email">
+      <button class="primary big" id="fgBtn">Enviar link</button>
+      <div class="hint">Só funciona para contas criadas com email. <a class="toLogin">Voltar</a></div>
+    </div>
+
+    <div class="view" data-v="reset">
+      <h1>Nova senha</h1>
+      <div class="lbl">Nova senha</div>
+      <input id="rsPass" type="password" autocomplete="new-password">
+      <div class="lbl">Confirmar</div>
+      <input id="rsPass2" type="password" autocomplete="new-password">
+      <button class="primary big" id="rsBtn">Salvar senha</button>
+    </div>
+
+    <div class="view" data-v="banned">
+      <h1>Acesso bloqueado</h1>
+      <div class="sub">Sua conta ou sua conexão foi banida do xcordbr.</div>
+      <button id="banOut">Sair</button>
+    </div>
+
+    <div class="err" id="authErr"></div>
+  </div>
 </div>
 
 <div id="app">
   <aside id="side">
-    <div class="brand">Tela Compartilhada<small id="online">...</small></div>
+    <button id="srvBtn"><span id="srvName">xcordbr</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    <div id="srvMenu"></div>
     <nav id="nav"></nav>
     <div id="voice">
-      <div style="flex:1;min-width:0"><b>Voz conectada</b><small id="voiceRoom">Sala geral</small></div>
+      <div style="flex:1;min-width:0"><b>Voz conectada</b><small id="voiceRoom"></small></div>
+      <button class="ib" id="leaveMini" title="Sair da sala de voz"></button>
     </div>
     <div class="me" id="meCard">
-      <div class="av" id="meAvatar" title="Trocar foto de perfil"></div>
-      <div class="meinfo" id="meInfo" title="Trocar nome"><b id="meName"></b><small id="meStatus">Online</small></div>
+      <div id="meAvatar"></div>
+      <div class="meinfo" id="meInfo" title="Editar perfil"><b id="meName"></b><small id="meUser"></small></div>
       <button class="ib" id="micMini" title="Microfone"></button>
+      <button class="ib" id="reportMini" title="Denunciar uma conta"></button>
       <button class="ib" id="devMini" title="Escolher câmera e microfone"></button>
     </div>
   </aside>
@@ -225,19 +353,22 @@
     <div class="top">
       <div class="t">
         <span id="roomIco"></span>
-        <h2 id="roomTitle">Sala geral</h2>
-        <small id="roomInfo">Conectando...</small>
+        <h2 id="roomTitle"></h2>
+        <small id="roomInfo"></small>
       </div>
       <div class="r">
-        <button class="mob sidebtn" id="sideBtn">Salas</button>
-        <button id="copyBtn">Copiar link</button>
+        <button class="mob sidebtn" id="sideBtn">Menu</button>
         <button class="mob chatbtn" id="chatBtn">Chat</button>
       </div>
     </div>
     <main id="grid">
-      <div id="empty"><b>Conectando...</b></div>
+      <div id="empty"><b>Você não está em uma sala de voz</b><span>Clique num canal na lateral para entrar.</span></div>
       <div id="strip"></div>
     </main>
+    <div id="friendsView">
+      <div class="ftabs" id="ftabs"></div>
+      <div id="fbody"></div>
+    </div>
     <div id="np">
       <div id="ytBox"><div id="ytPlayer"></div></div>
       <div id="spBox"><div id="spPlayer"></div></div>
@@ -245,11 +376,12 @@
       <input type="range" id="npVol" min="0" max="100" value="60" title="Volume da música">
       <button id="npSkip">Pular</button>
     </div>
-    <div class="controls">
+    <div class="controls" id="controls">
       <button class="rb" id="camBtn"></button>
       <button class="rb" id="screenBtn"></button>
       <button class="rb" id="micBtn"></button>
       <button class="rb" id="devBtn" data-tip="Dispositivos"></button>
+      <button class="rb leave" id="leaveBtn" data-tip="Sair da sala"></button>
       <div id="devPanel">
         <label>Câmera<select id="camSel"></select></label>
         <label>Microfone<select id="micSel"></select></label>
@@ -264,41 +396,36 @@
     <form id="chatForm" autocomplete="off">
       <button type="button" id="attach" title="Enviar imagem"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg></button>
       <input type="file" id="imgFile" accept="image/*" hidden>
-      <input id="chatInput" maxlength="1000" placeholder="Conversar">
-      <button class="primary" type="submit">Enviar</button>
+      <input id="chatInput" maxlength="2000" placeholder="Conversar">
     </form>
   </aside>
 </div>
-<input type="file" id="avatarFile" accept="image/*" hidden>
-<div id="lightbox"><img alt=""></div>
 
+<div id="modal"><div class="box" id="mbox"></div></div>
+<div id="pop"></div>
 <div id="toast"></div>
 <button id="sound" class="primary">Clique para ativar o áudio da sala</button>
+<div id="lightbox"><img alt=""></div>
+<input type="file" id="avatarFile" accept="image/*" hidden>
 
 <script>
-/* ================= Configuração ================= */
-// Só o hash do código fica no fonte. O ID do servidor da sala é derivado do código.
-const ACCESS_HASH = '0f9dbab494594994c643ed8220cec23a90eb30fb75cc02001d1079748e6fd542';
-// Cada sala de voz tem o seu próprio chat de texto (mesmo id)
-const ROOMS = [
-  { id: 'geral', name: 'Sala geral', max: 0 },
-  { id: 's1', name: 'Sala 01', max: 0 },
-  { id: 's2', name: 'Sala 02', max: 0 },
-  { id: 's3', name: 'Sala 03', max: 0 },
-  { id: 'priv1', name: 'Privada 01', max: 2 },
-  { id: 'priv2', name: 'Privada 02', max: 2 },
-];
-const CHATS = [...ROOMS.map(r => ({ id: r.id, name: r.name })), { id: 'musica', name: 'pedir-música' }];
-const isPriv = id => { const r = ROOMS.find(r => r.id === id); return !!(r && r.max); };
-const KINDS = ['screen', 'cam', 'mic'];
-// Opcional: com uma chave da YouTube Data API v3 dá para pedir música pelo nome (!tocar nome).
-// Sem chave, os pedidos funcionam com link do YouTube ou do Spotify.
-const YT_API_KEY = '';
+/* ===================== Configuração ===================== */
+const SUPA_URL = 'https://hmikqhooyshhxxhgzekw.supabase.co';
+const SUPA_KEY = 'sb_publishable_77I79kJhcCPHG5V3MPpmHA_o1EuXmxV';   // chave pública (protegida pelas regras RLS do banco)
+const PUBLIC_ID = '00000000-0000-0000-0000-000000000001';           // servidor xcordbr (todo mundo)
+const NOEMAIL_DOMAIN = 'sem-email.xcordbr.app';                       // contas criadas sem email
+const YT_API_KEY = '';   // opcional: chave da YouTube Data API v3 para !tocar nome
 const BOT = 'Bot de música';
-const cleanTitle = t => String(t || '').replace(/[<>]/g, '').trim().slice(0, 120);
+const KINDS = ['screen', 'cam', 'mic'];
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 
+/* ===================== Utilidades ===================== */
 const $ = id => document.getElementById(id);
-const clean = t => String(t || '').replace(/[<>&"']/g, '').trim().slice(0, 24);
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+let toastT;
+function toast(t) { const x = $('toast'); x.textContent = t; x.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => x.style.display = 'none', 4000); }
+const fmtTime = ts => { const d = new Date(ts); const today = new Date().toDateString() === d.toDateString(); return (today ? '' : d.toLocaleDateString('pt-BR') + ' ') + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
+const cleanTitle = t => String(t || '').replace(/[<>]/g, '').trim().slice(0, 120);
 const ICON = {
   mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>',
   micOff: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/><path d="M4 4l16 16" stroke="#f23f43"/></svg>',
@@ -308,322 +435,442 @@ const ICON = {
   gear: '<svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
   speaker: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  leave: '<svg viewBox="0 0 24 24"><path d="M3 15c5-5 13-5 18 0l-2.5 2.5-3-1.5v-2.5a10 10 0 0 0-5 0V16l-3 1.5z"/></svg>',
+  flag: '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
+  friends: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  link: '<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  shield: '<svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>',
 };
+const iconEl = name => { const s = el('span'); s.innerHTML = ICON[name]; return s.firstChild; };
 const COLORS = ['#5b67f1', '#3ba55c', '#eb459e', '#faa61a', '#ed4245', '#3498db', '#9b59b6', '#1abc9c'];
 const colorOf = n => { let h = 0; for (const ch of String(n)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
-const avatars = new Map();   // id -> foto (data URL)
-let myAvatar = '';
-try { myAvatar = localStorage.getItem('tela_avatar') || ''; } catch (e) {}
-// cria o círculo do avatar (foto ou inicial colorida)
-function avatarEl(uid, name, size, photo) {
-  const a = document.createElement('div');
-  a.className = 'av';
-  if (uid) a.dataset.uid = uid;
+
+/* ===================== Perfis ===================== */
+let me = null, myProfile = null, isAdmin = false;
+const profiles = new Map();
+const dn = uid => { const p = profiles.get(uid); return p ? (p.display_name || p.username) : 'Usuário'; };
+async function ensureProfiles(ids) {
+  const miss = [...new Set(ids)].filter(id => id && !profiles.has(id));
+  if (!miss.length) return;
+  const { data } = await sb.from('profiles').select('id,username,display_name,bio,avatar,banner_color').in('id', miss);
+  (data || []).forEach(p => profiles.set(p.id, p));
+}
+function avatarEl(uid, size, speak) {
+  const a = el('div', 'av');
+  if (speak) a.dataset.speak = speak;
   if (size) { a.style.width = a.style.height = size + 'px'; a.style.fontSize = Math.round(size * 0.42) + 'px'; }
-  const img = photo !== undefined ? photo : avatars.get(uid);
-  if (img) a.style.backgroundImage = 'url("' + img + '")';
-  else { a.style.background = uid === 'bot' ? '#5b67f1' : colorOf(name); a.textContent = uid === 'bot' ? '♪' : (String(name || '?')[0] || '?').toUpperCase(); }
+  if (uid === 'bot') { a.style.background = '#5b67f1'; a.textContent = '♪'; return a; }
+  const p = profiles.get(uid);
+  if (p && p.avatar) a.style.backgroundImage = 'url("' + p.avatar + '")';
+  else { const n = p ? (p.display_name || p.username) : '?'; a.style.background = colorOf(p ? p.username : uid); a.textContent = (n[0] || '?').toUpperCase(); }
+  if (uid) a.onclick = e => { e.stopPropagation(); showCard(uid, e); };
   return a;
 }
-// reduz a foto para 128x128 (recorte quadrado) para ficar leve
-function resizeImage(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onerror = rej;
-    r.onload = () => {
-      const img = new Image();
-      img.onerror = rej;
-      img.onload = () => {
-        const c = document.createElement('canvas'); c.width = c.height = 128;
-        const sz = Math.min(img.width, img.height);
-        c.getContext('2d').drawImage(img, (img.width - sz) / 2, (img.height - sz) / 2, sz, sz, 0, 0, 128, 128);
-        res(c.toDataURL('image/jpeg', 0.82));
-      };
-      img.src = r.result;
-    };
-    r.readAsDataURL(file);
+
+/* ===================== Imagens ===================== */
+function loadImg(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onerror = rej; r.onload = () => { const i = new Image(); i.onerror = rej; i.onload = () => res(i); i.src = r.result; }; r.readAsDataURL(file); }); }
+async function squareDataUrl(file, size) {
+  const img = await loadImg(file);
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const s = Math.min(img.width, img.height);
+  c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+  return c.toDataURL('image/jpeg', 0.82);
+}
+async function shrinkBlob(file, maxDim, q) {
+  const img = await loadImg(file);
+  const k = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', q));
+}
+const rnd = () => Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+async function uploadChatImage(file) {
+  let blob = file, ext = 'jpg', type = 'image/jpeg';
+  if (file.type === 'image/gif' && file.size < 3e6) { ext = 'gif'; type = 'image/gif'; }
+  else blob = await shrinkBlob(file, 1600, 0.85);
+  const path = me + '/' + rnd() + '.' + ext;
+  const { error } = await sb.storage.from('chat-images').upload(path, blob, { contentType: type });
+  if (error) throw error;
+  return sb.storage.from('chat-images').getPublicUrl(path).data.publicUrl;
+}
+
+/* ===================== Login, cadastro e senha ===================== */
+const inviteParam = new URLSearchParams(location.search).get('convite');
+function view(v) { document.querySelectorAll('#auth .view').forEach(x => x.classList.toggle('on', x.dataset.v === v)); $('authErr').textContent = ''; }
+const authErr = t => $('authErr').textContent = t;
+$('toSignup').onclick = () => view('signup1');
+$('toForgot').onclick = () => view('forgot');
+document.querySelectorAll('.toLogin').forEach(a => a.onclick = () => view('login'));
+document.querySelector('.toSignup1').onclick = () => view('signup1');
+['liUser', 'liPass'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('liBtn').click(); }));
+
+if (inviteParam) {
+  sb.rpc('invite_info', { p_code: inviteParam }).then(({ data }) => {
+    const box = $('authInvite');
+    if (data && data[0]) { box.innerHTML = ''; box.append('Você foi convidado para'); box.appendChild(el('b', null, data[0].name)); box.appendChild(el('div', 'hint', 'Entre ou crie sua conta para participar.')); }
+    else box.textContent = 'Esse convite é inválido ou expirou.';
+    box.style.display = 'block';
   });
 }
 
-async function sha256(txt) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-/* ================= Entrada ================= */
-let myName = '', HUBID = '';
-
-async function tryEnter(pass, name) {
-  pass = (pass || '').trim().toLowerCase();
-  name = clean(name);
-  if (!name) return 'nome';
-  if (!pass || await sha256(pass) !== ACCESS_HASH) return 'codigo';
-  myName = name;
-  HUBID = 'jktela-' + (await sha256(pass + '|sala-principal')).slice(0, 24) + '-hub';
-  try { localStorage.setItem('tela_acesso', pass); localStorage.setItem('tela_nome', name); } catch (e) {}
-  $('gate').remove();
-  $('app').style.display = 'grid';
-  $('meName').textContent = myName;
-  renderMe();
-  renderAll();
-  updateButtons();
-  boot();
-  return 'ok';
-}
-
-function paintGatePrev() {
-  const g = $('gatePrev');
-  if (myAvatar) { g.style.backgroundImage = 'url("' + myAvatar + '")'; g.textContent = ''; g.style.border = '0'; }
-}
-paintGatePrev();
-$('gateFile').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  try { myAvatar = await resizeImage(f); try { localStorage.setItem('tela_avatar', myAvatar); } catch (x) {} paintGatePrev(); }
-  catch (x) { $('gateErr').textContent = 'Não consegui abrir essa imagem.'; }
-};
-$('gateForm').onsubmit = async e => {
-  e.preventDefault();
-  const r = await tryEnter($('gateInput').value, $('nameInput').value);
-  if (r === 'nome') $('gateErr').textContent = 'Digite seu nome.';
-  else if (r === 'codigo') $('gateErr').textContent = 'Código incorreto.';
-};
-(async () => {
-  let pass = null, name = null;
-  try { pass = localStorage.getItem('tela_acesso'); name = localStorage.getItem('tela_nome'); } catch (e) {}
-  if (name) $('nameInput').value = name;
-  if (pass && name) tryEnter(pass, name);
-  else if (name) $('gateInput').focus();
-})();
-
-/* ================= Estado ================= */
-let peer = null, hubConn = null, hubPeer = null, hub = null;
-let members = new Map();          // id -> {id,name,room,seq,screen,cam,mic}
-let myRoom = null;              // escolhida na tela de salas
-const local = { screen: null, cam: null, mic: null };
-const outCalls = new Map();       // "id:tipo:seq" -> chamada que eu fiz
-const inCalls = new Map();        // "id:tipo" -> chamada recebida
-const tiles = new Map();          // chave -> elemento do vídeo
-const audios = new Map();         // id -> <audio> do microfone
-let focusId = null;
-const chats = {}, unread = {};
-CHATS.forEach(c => { chats[c.id] = []; unread[c.id] = 0; });
-let curChat = 'geral';
-let statusText = 'Conectando...';
-let music = {};                 // sala -> música tocando
-let clockOffset = 0;
-const hubNow = () => Date.now() + clockOffset;
-const mkey = c => c ? c.kind + ':' + c.id + ':' + c.startedAt : '';
-
-const send = d => { if (hubConn && hubConn.open) { try { hubConn.send(d); } catch (e) {} } };
-const sendState = () => send({ t: 'state', screen: !!local.screen, cam: !!local.cam, mic: !!local.mic });
-function setStatus(t) { statusText = t; renderTop(); }
-let toastT;
-function toast(t) { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = 'none', 3500); }
-
-/* ================= Conexão com o servidor da sala ================= */
-// Quem chegar primeiro também roda o "servidor" (hub) que guarda quem está em
-// cada sala e as mensagens. Se essa pessoa sair, outra assume sozinha.
-function boot() {
-  peer = new Peer();
-  peer.on('open', () => { renderMe(); ensureHub(); });
-  peer.on('call', onCall);
-  peer.on('error', e => {
-    if (e.type === 'peer-unavailable') { if (String(e.message).includes(HUBID)) hubLost(); return; }
-    setStatus('Problema de conexão (' + e.type + '), tentando de novo...');
-  });
-  peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
-  // batimento: se o servidor da sala parar de responder, outra pessoa assume
-  setInterval(() => {
-    send({ t: 'ping' });
-    if (hubConn && hubConn.open && Date.now() - lastHub > 12000) hubLost();
-  }, 4000);
-}
-
-function ensureHub() {
-  const hp = new Peer(HUBID);
-  hp.on('open', () => { hubPeer = hp; startHub(); connectHub(); });
-  hp.on('error', e => { if (e.type === 'unavailable-id') { hp.destroy(); connectHub(); } });
-  hp.on('disconnected', () => { try { hp.reconnect(); } catch (e) {} });
-}
-
-function connectHub() {
-  if (hubConn) { const old = hubConn; hubConn = null; try { old.close(); } catch (e) {} }
-  const c = peer.connect(HUBID, { reliable: true, metadata: { name: myName } });
-  hubConn = c;
-  let opened = false;
-  c.on('open', () => { opened = true; lastHub = Date.now(); setStatus(''); if (myRoom) send({ t: 'join', room: myRoom }); sendState(); if (myAvatar) send({ t: 'avatar', data: myAvatar }); });
-  c.on('data', onHubData);
-  c.on('close', () => { if (hubConn === c) hubLost(); });
-  setTimeout(() => { if (!opened && hubConn === c) hubLost(); }, 8000);
-}
-
-let lostPending = false, lastHub = Date.now();
-function hubLost() {
-  if (lostPending) return;
-  lostPending = true;
-  if (hubConn) { const old = hubConn; hubConn = null; try { old.close(); } catch (e) {} }
-  setStatus('Reconectando...');
-  setTimeout(() => { lostPending = false; ensureHub(); }, 400 + Math.random() * 1600);
-}
-
-/* ================= Servidor da sala (roda só em quem hospeda) ================= */
-function startHub() {
-  hub = { conns: new Map(), chats: JSON.parse(JSON.stringify(chats)), seq: 0, music: JSON.parse(JSON.stringify(music)) };
-  hubPeer.on('connection', conn => {
-    conn.on('open', () => {
-      hub.conns.set(conn.peer, { conn, id: conn.peer, name: clean(conn.metadata && conn.metadata.name) || 'Convidado', room: null, seq: 0, screen: false, cam: false, mic: false, seen: Date.now(), avatar: '' });
-      const map = {}; hub.conns.forEach(x => { if (x.avatar) map[x.id] = x.avatar; });
-      const pub = {}; Object.keys(hub.chats).forEach(k => { if (!isPriv(k)) pub[k] = hub.chats[k]; });
-      try { conn.send({ t: 'history', chats: pub }); conn.send({ t: 'avatars', map }); hubBroadcast(); } catch (e) {}
-    });
-    conn.on('data', d => hubData(conn.peer, d));
-    conn.on('close', () => { if (hub.conns.delete(conn.peer)) hubBroadcast(); });
-  });
-  // remove quem fechou a aba sem avisar (para não "ocupar" sala privada)
-  setInterval(() => {
-    const now = Date.now(); let changed = false;
-    hub.conns.forEach((m, id) => { if (now - m.seen > 15000) { try { m.conn.close(); } catch (e) {} hub.conns.delete(id); changed = true; } });
-    if (changed) hubBroadcast();
-  }, 5000);
-}
-
-function roomCount(room, except) { let n = 0; hub.conns.forEach(m => { if (m.room === room && m.id !== except) n++; }); return n; }
-
-function hubData(id, d) {
-  const m = hub.conns.get(id);
-  if (!m || !d) return;
-  m.seen = Date.now();
-  if (d.t === 'ping') { try { m.conn.send({ t: 'pong', now: Date.now() }); } catch (e) {} return; }
-  if (d.t === 'music') return hubMusic(m, d);
-  if (d.t === 'avatar') {
-    const data = String(d.data || '');
-    if (data && (!data.startsWith('data:image/') || data.length > 80000)) return;
-    m.avatar = data;
-    hub.conns.forEach(x => { try { x.conn.send({ t: 'avatar', id: m.id, data }); } catch (e) {} });
-    return;
-  }
-  if (d.t === 'join') {
-    const r = ROOMS.find(r => r.id === d.room);
-    if (!r) return;
-    if (r.max && roomCount(r.id, id) >= r.max) {
-      try { m.conn.send({ t: 'denied', room: r.id }); } catch (e) {}
-      return;
+$('liBtn').onclick = async () => {
+  const user = $('liUser').value.trim(), pass = $('liPass').value;
+  if (!user || !pass) return authErr('Preencha usuário e senha.');
+  $('liBtn').disabled = true;
+  try {
+    let email = user;
+    if (!user.includes('@')) {
+      const { data, error } = await sb.rpc('login_email', { p_username: user, p_password: pass });
+      if (error) return authErr(/bloqueado/.test(error.message) ? 'Muitas tentativas erradas. Espere 15 minutos.' : 'Não consegui entrar agora. Tente de novo.');
+      if (!data) return authErr('Usuário ou senha incorretos.');
+      email = data;
     }
-    m.room = r.id; m.seq = ++hub.seq;
-    try {
-      if (r.max) m.conn.send({ t: 'history', chats: { [r.id]: hub.chats[r.id] } });
-      m.conn.send({ t: 'moved', room: r.id });
-    } catch (e) {}
-    hubBroadcast();
-  } else if (d.t === 'state') {
-    m.screen = !!d.screen; m.cam = !!d.cam; m.mic = !!d.mic;
-    hubBroadcast();
-  } else if (d.t === 'msg') {
-    const arr = hub.chats[d.ch];
-    const text = String(d.text || '').slice(0, 1000).trim();
-    const img = typeof d.img === 'string' && d.img.startsWith('data:image/') && d.img.length < 700000 ? d.img : '';
-    if (!arr || (!text && !img)) return;
-    if (isPriv(d.ch) && m.room !== d.ch) return;      // chat da privada só para quem está nela
-    const msg = { name: m.name, uid: m.id, text, ts: Date.now() };
-    if (img) msg.img = img;
-    arr.push(msg); if (arr.length > 200) arr.shift();
-    // guarda só as 15 imagens mais recentes de cada chat para não pesar
-    let n = 0;
-    for (let i = arr.length - 1; i >= 0; i--) if (arr[i].img && ++n > 15) { delete arr[i].img; arr[i].expired = true; }
-    hub.conns.forEach(x => { if (isPriv(d.ch) && x.room !== d.ch) return; try { x.conn.send({ t: 'msg', ch: d.ch, m: msg }); } catch (e) {} });
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) authErr('Usuário ou senha incorretos.');
+  } finally { $('liBtn').disabled = false; }
+};
+
+let pendingSignup = null;
+$('su1Btn').onclick = async () => {
+  const u = $('suUser').value.trim().toLowerCase(), n = $('suName').value.trim(), p = $('suPass').value, p2 = $('suPass2').value;
+  if (!/^[a-z0-9_.]{3,20}$/.test(u)) return authErr('Usuário inválido: use de 3 a 20 letras minúsculas, números, ponto ou _.');
+  if (p.length < 6) return authErr('A senha precisa ter pelo menos 6 caracteres.');
+  if (p !== p2) return authErr('As senhas não são iguais.');
+  const { data } = await sb.rpc('username_available', { p_username: u });
+  if (data === false) return authErr('Esse usuário já existe. Escolha outro.');
+  pendingSignup = { u, n, p };
+  view('signup2');
+};
+async function doSignup(email) {
+  if (!pendingSignup) return view('signup1');
+  const { u, n, p } = pendingSignup;
+  const { data, error } = await sb.auth.signUp({ email: email || (u + '@' + NOEMAIL_DOMAIN), password: p, options: { data: { username: u, display_name: n } } });
+  if (error) {
+    if (/registered|already/i.test(error.message)) return authErr('Esse email já está em uso.');
+    if (/rate limit/i.test(error.message)) return authErr('Muitos cadastros agora. Tente em alguns minutos.');
+    return authErr('Não consegui criar a conta: ' + error.message);
   }
+  if (!data.session) return authErr('Conta criada, mas o servidor está pedindo confirmação de email. Avise o administrador.');
 }
+$('suSkip').onclick = () => doSignup('');
+$('suWithEmail').onclick = () => {
+  const e = $('suEmail').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return authErr('Digite um email válido, ou clique em Avançar sem email.');
+  doSignup(e);
+};
+$('fgBtn').onclick = async () => {
+  const e = $('fgEmail').value.trim();
+  if (!e) return authErr('Digite seu email.');
+  const { error } = await sb.auth.resetPasswordForEmail(e, { redirectTo: location.origin + location.pathname });
+  if (error) return authErr('Não consegui enviar agora: ' + error.message);
+  toast('Se esse email tiver uma conta, o link chegou na caixa de entrada.'); view('login');
+};
+let recovering = false;
+$('rsBtn').onclick = async () => {
+  const p = $('rsPass').value;
+  if (p.length < 6) return authErr('A senha precisa ter pelo menos 6 caracteres.');
+  if (p !== $('rsPass2').value) return authErr('As senhas não são iguais.');
+  const { error } = await sb.auth.updateUser({ password: p });
+  if (error) return authErr('Não consegui salvar: ' + error.message);
+  recovering = false; toast('Senha alterada!');
+  const { data } = await sb.auth.getSession();
+  if (data.session) startApp(data.session);
+};
+$('banOut').onclick = async () => { await sb.auth.signOut(); location.reload(); };
 
-function hubPost(ch, text) {
-  const msg = { name: BOT, uid: 'bot', text, ts: Date.now(), bot: true };
-  const arr = hub.chats[ch]; arr.push(msg); if (arr.length > 200) arr.shift();
-  hub.conns.forEach(x => { try { x.conn.send({ t: 'msg', ch, m: msg }); } catch (e) {} });
-}
+let started = false;
+sb.auth.onAuthStateChange((ev, session) => {
+  if (ev === 'PASSWORD_RECOVERY') { recovering = true; view('reset'); return; }
+  if (ev === 'SIGNED_OUT') { if (started) location.reload(); return; }
+  if (session && !started && !recovering) setTimeout(() => startApp(session), 0);
+});
 
-function hubMusic(m, d) {
-  const room = m.room; if (!room) return;
-  const rname = ROOMS.find(r => r.id === room).name;
-  const cur = hub.music[room];
-  if (d.action === 'play') {
-    if (!['yt', 'sp'].includes(d.kind) || !/^[\w-]{6,40}$/.test(d.id || '')) return;
-    if (cur) return hubPost('musica', 'Já tem música tocando na ' + rname + ': "' + cur.title + '". Só uma por vez: espere acabar ou mande !pular.');
-    const title = cleanTitle(d.title) || 'Música';
-    hub.music[room] = { kind: d.kind, id: d.id, title, by: m.name, byId: m.id, startedAt: Date.now() };
-    hubPost('musica', 'Tocando na ' + rname + ': "' + title + '" (pedido por ' + m.name + ')');
-  } else if (d.action === 'skip') {
-    if (!cur) return hubPost('musica', 'Não tem música tocando na ' + rname + '.');
-    delete hub.music[room];
-    hubPost('musica', m.name + ' parou a música na ' + rname + '.');
-  } else if (d.action === 'end') {
-    if (!cur || mkey(cur) !== d.key) return;
-    delete hub.music[room];
-  } else return;
-  hubBroadcast();
-}
+/* ===================== Estado ===================== */
+let servers = [], curServer = null, channels = [];
+let mode = 'server';            // 'server' ou 'dm'
+let chatView = null;            // { type: 'ch'|'dm', id }
+const msgCache = new Map(), unread = new Map();
+let friends = [], dmPartners = new Set(), friendsTab = 'all';
+let presence = null, presenceReady = false;
+let members = new Map();        // peerId -> {id, uid, room, seq, screen, cam, mic}
+let myRoom = null, mySeq = 0;
+let peer = null, peerId = null;
+const local = { screen: null, cam: null, mic: null };
+const outCalls = new Map(), inCalls = new Map(), tiles = new Map(), audios = new Map();
+let focusId = null;
+const musicRows = new Map();
+const chKey = () => chatView ? chatView.type + ':' + chatView.id : '';
 
-function hubBroadcast() {
-  // música para quando a sala esvazia
-  Object.keys(hub.music).forEach(r => { if (!roomCount(r)) delete hub.music[r]; });
-  const list = [...hub.conns.values()].filter(m => m.room).map(({ id, name, room, seq, screen, cam, mic }) => ({ id, name, room, seq, screen, cam, mic }));
-  hub.conns.forEach(x => { try { x.conn.send({ t: 'members', list, music: hub.music, now: Date.now() }); } catch (e) {} });
-}
-
-/* ================= Mensagens do servidor ================= */
-function onHubData(d) {
-  if (!d) return;
-  lastHub = Date.now();
-  if (d.t === 'history') {
-    Object.keys(d.chats || {}).forEach(k => { if (chats[k]) chats[k] = d.chats[k] || []; });
-    renderChat();
-  } else if (d.t === 'msg') {
-    const arr = chats[d.ch];
-    if (!arr) return;
-    arr.push(d.m); if (arr.length > 200) arr.shift();
-    if (d.ch === curChat) { appendMsg(d.m); if (!chatVisible()) unread[d.ch]++; }
-    else unread[d.ch]++;
-    renderNav();
-  } else if (d.t === 'avatars') {
-    Object.entries(d.map || {}).forEach(([id, data]) => avatars.set(id, data));
-    renderAll(); renderChat();
-  } else if (d.t === 'avatar') {
-    if (d.data) avatars.set(d.id, d.data); else avatars.delete(d.id);
-    renderAll(); renderChat();
-  } else if (d.t === 'pong') {
-    if (d.now) clockOffset = d.now - Date.now();
-  } else if (d.t === 'members') {
-    members = new Map(d.list.map(m => [m.id, m]));
-    music = d.music || {};
-    if (d.now) clockOffset = d.now - Date.now();
-    syncMusic();
-    syncMedia();
-    renderAll();
-  } else if (d.t === 'moved') {
-    if (d.room !== myRoom) { leaveRoomMedia(); myRoom = d.room; syncMusic(); }
-    if (curChat !== 'musica') { curChat = d.room; unread[d.room] = 0; renderChat(); }
-    renderAll();
-  } else if (d.t === 'denied') {
-    toast('Essa sala privada já tem 2 pessoas.');
+async function startApp(session) {
+  if (started) return;
+  started = true;
+  me = session.user.id;
+  const { data: st } = await sb.rpc('my_status');
+  if (st && st.blocked) { started = false; view('banned'); return; }
+  isAdmin = !!(st && st.admin);
+  sb.rpc('touch_ip').then(() => {}, () => {});
+  let p = null;
+  for (let i = 0; i < 5 && !p; i++) {
+    const r = await sb.from('profiles').select('*').eq('id', me).maybeSingle();
+    p = r.data; if (!p) await new Promise(r => setTimeout(r, 600));
   }
+  if (!p) { started = false; authErr('Não encontrei seu perfil. Tente entrar de novo.'); await sb.auth.signOut(); return; }
+  myProfile = p; profiles.set(me, p);
+  $('auth').style.display = 'none';
+  $('app').style.display = 'grid';
+  renderMe(); updateButtons();
+  subscribeDb();
+  await bootPeer();
+  await loadServers();
+  await loadFriends();
+  let first = PUBLIC_ID;
+  try { const s = localStorage.getItem('xc_server'); if (s && servers.some(x => x.id === s)) first = s; } catch (e) {}
+  await openServer(first);
+  if (inviteParam) { history.replaceState(null, '', location.pathname); askJoinInvite(inviteParam); }
 }
 
-function joinRoom(id) {
-  if (id === myRoom) return;
-  const r = ROOMS.find(r => r.id === id);
-  if (r.max && countIn(id) >= r.max) return toast('Essa sala privada já tem 2 pessoas.');
-  if (!hubConn || !hubConn.open) return toast('Ainda conectando, tente em instantes.');
-  send({ t: 'join', room: id });
-  $('side').classList.remove('open');
+/* ===================== Servidores ===================== */
+async function loadServers() {
+  const { data } = await sb.from('server_members').select('server_id, servers(id,name,owner_id,is_public,invite_code)').eq('user_id', me);
+  servers = (data || []).map(r => r.servers).filter(Boolean).sort((a, b) => (b.is_public - a.is_public) || a.name.localeCompare(b.name));
+  renderServerMenu();
+}
+const srv = () => servers.find(s => s.id === curServer);
+const ownsServer = () => servers.some(s => s.owner_id === me && !s.is_public);
+
+function renderServerMenu() {
+  const m = $('srvMenu'); m.innerHTML = '';
+  m.appendChild(el('div', 'mlab', 'Seus servidores'));
+  servers.forEach(s => {
+    const it = el('div', 'mi' + (mode === 'server' && s.id === curServer ? ' cur' : ''));
+    const si = el('div', 'si', s.name.slice(0, 2).toUpperCase()); si.style.background = s.is_public ? 'var(--acc)' : colorOf(s.id);
+    it.appendChild(si); it.append(s.name);
+    it.onclick = () => { closeMenu(); openServer(s.id); };
+    m.appendChild(it);
+  });
+  m.appendChild(el('div', 'msep'));
+  const add = (icon, text, fn, cls) => { const it = el('div', 'mi' + (cls ? ' ' + cls : '')); it.appendChild(iconEl(icon)); it.append(text); it.onclick = () => { closeMenu(); fn(); }; m.appendChild(it); };
+  const nPend = friends.filter(f => f.status === 'pending' && f.addressee === me).length;
+  add('friends', 'Amigos e mensagens privadas' + (nPend ? ' (' + nPend + ')' : ''), () => openDM(null));
+  if (!ownsServer()) add('plus', 'Criar meu servidor', createServerDialog);
+  add('link', 'Entrar com convite', joinInviteDialog);
+  const s = srv();
+  if (mode === 'server' && s) {
+    m.appendChild(el('div', 'msep'));
+    add('friends', 'Membros de ' + s.name, membersDialog);
+    if (s.owner_id === me) { add('link', 'Convidar pessoas', inviteDialog); add('gear', 'Configurações do servidor', serverSettings); }
+    else if (!s.is_public) add('leave', 'Sair do servidor', leaveServer, 'red');
+  }
+  if (isAdmin) { m.appendChild(el('div', 'msep')); add('shield', 'Painel de administração', adminPanel); }
+}
+function closeMenu() { $('srvMenu').classList.remove('open'); }
+$('srvBtn').onclick = e => { e.stopPropagation(); renderServerMenu(); $('srvMenu').classList.toggle('open'); };
+$('srvMenu').onclick = e => e.stopPropagation();
+
+async function openServer(sid) {
+  if (!servers.some(s => s.id === sid)) sid = PUBLIC_ID;
+  if (sid !== curServer) {
+    leaveVoice();
+    if (presence) { const old = presence; presence = null; try { await sb.removeChannel(old); } catch (e) {} }
+    members = new Map(); presenceReady = false;
+    curServer = sid;
+    try { localStorage.setItem('xc_server', sid); } catch (e) {}
+    await loadChannels();
+    await loadMusic();
+    joinPresence(false);
+  }
+  mode = 'server';
+  const first = channels.find(c => c.kind === 'voice') || channels[0];
+  if (!chatView || chatView.type !== 'ch' || !chan(chatView.id)) chatView = first ? { type: 'ch', id: first.id } : null;
+  showMode();
+  await renderChat();
+  renderAll();
+}
+async function loadChannels() {
+  const { data } = await sb.from('channels').select('*').eq('server_id', curServer).order('position').order('created_at');
+  channels = data || [];
 }
 
-/* ================= Mídia (só entre quem está na mesma sala) ================= */
-const roomPeers = () => [...members.values()].filter(m => m.room === myRoom && peer && m.id !== peer.id);
+function createServerDialog() {
+  const name = el('input'); name.maxLength = 40; name.placeholder = 'Ex.: Turma do 3º ano';
+  openModal('Criar meu servidor', [el('div', 'hint', 'Cada conta pode criar um servidor privado. Só entra quem tiver o seu link de convite.'), el('div', 'lbl', 'Nome do servidor'), name], [
+    ['Cancelar', closeModal],
+    ['Criar', async () => {
+      const n = name.value.trim();
+      if (n.length < 2) return toast('Dê um nome com pelo menos 2 letras.');
+      const { data, error } = await sb.from('servers').insert({ name: n, owner_id: me }).select().single();
+      if (error) return toast(/one_private|duplicate/.test(error.message) ? 'Você já criou um servidor.' : 'Não consegui criar: ' + error.message);
+      closeModal(); await loadServers(); await openServer(data.id); inviteDialog();
+    }, 'primary'],
+  ]);
+  setTimeout(() => name.focus(), 50);
+}
+const inviteUrl = code => location.origin + location.pathname + '?convite=' + code;
+function inviteDialog() {
+  const s = srv(); if (!s || s.is_public) return;
+  const inp = el('input'); inp.readOnly = true; inp.value = inviteUrl(s.invite_code);
+  const copy = el('button', 'primary', 'Copiar');
+  copy.onclick = async () => { try { await navigator.clipboard.writeText(inp.value); copy.textContent = 'Copiado!'; } catch (e) { inp.select(); } };
+  const row = el('div', 'copyrow'); row.append(inp, copy);
+  openModal('Convidar para ' + s.name, [el('div', 'hint', 'Mande este link para quem você quer no servidor. Quem não tiver o link não consegue entrar.'), row,
+    el('div', 'hint', 'Se o link vazar, gere um novo nas configurações do servidor: o antigo para de funcionar.')], [['Fechar', closeModal]]);
+}
+function codeFrom(t) { t = String(t || '').trim(); const m = t.match(/convite=([A-Za-z0-9]+)/); return m ? m[1] : t.replace(/[^A-Za-z0-9]/g, ''); }
+function joinInviteDialog() {
+  const inp = el('input'); inp.placeholder = 'Cole o link ou o código do convite';
+  openModal('Entrar com convite', [inp], [['Cancelar', closeModal], ['Entrar', () => { const c = codeFrom(inp.value); if (!c) return toast('Cole o link do convite.'); closeModal(); askJoinInvite(c); }, 'primary']]);
+  setTimeout(() => inp.focus(), 50);
+}
+async function askJoinInvite(code) {
+  const { data } = await sb.rpc('invite_info', { p_code: code });
+  const info = data && data[0];
+  if (!info) return toast('Esse convite é inválido ou expirou.');
+  if (servers.some(s => s.id === info.id)) return openServer(info.id);
+  openModal('Convite', [el('div', 'hint', 'Você foi convidado para'), el('h2', null, info.name), el('div', 'hint', info.members + (info.members == 1 ? ' membro' : ' membros'))], [
+    ['Agora não', closeModal],
+    ['Aceitar convite', async () => {
+      const { data: sid, error } = await sb.rpc('join_by_invite', { p_code: code });
+      if (error) return toast('Não consegui entrar: ' + error.message);
+      closeModal(); await loadServers(); openServer(sid);
+    }, 'primary'],
+  ]);
+}
+async function leaveServer() {
+  const s = srv(); if (!s || s.is_public) return;
+  if (!confirm('Sair do servidor ' + s.name + '? Você só volta com um novo convite.')) return;
+  await sb.from('server_members').delete().eq('server_id', s.id).eq('user_id', me);
+  await loadServers(); openServer(PUBLIC_ID);
+}
+async function membersDialog() {
+  const s = srv(); if (!s) return;
+  const { data } = await sb.from('server_members').select('user_id').eq('server_id', s.id).limit(1000);
+  const ids = (data || []).map(r => r.user_id);
+  await ensureProfiles(ids);
+  const list = el('div');
+  ids.sort((a, b) => dn(a).localeCompare(dn(b))).forEach(id => {
+    const p = profiles.get(id); if (!p) return;
+    const row = el('div', 'admrow');
+    row.appendChild(avatarEl(id, 36));
+    const n = el('div', 'n'); n.appendChild(el('b', null, dn(id) + (id === s.owner_id ? '  (dono)' : ''))); n.appendChild(el('small', null, '@' + p.username)); row.appendChild(n);
+    if (s.owner_id === me && id !== me) {
+      const k = el('button', 'danger', 'Remover');
+      k.onclick = async () => { if (!confirm('Remover ' + dn(id) + ' do servidor?')) return; await sb.from('server_members').delete().eq('server_id', s.id).eq('user_id', id); row.remove(); };
+      row.appendChild(k);
+    }
+    list.appendChild(row);
+  });
+  openModal('Membros (' + ids.length + ')', [list], [['Fechar', closeModal]]);
+}
+async function serverSettings() {
+  const s = srv(); if (!s || s.owner_id !== me) return;
+  const name = el('input'); name.value = s.name; name.maxLength = 40;
+  const saveName = el('button', 'primary', 'Salvar');
+  saveName.onclick = async () => { const { error } = await sb.from('servers').update({ name: name.value.trim() }).eq('id', s.id); if (error) return toast('Nome inválido.'); toast('Nome salvo.'); await loadServers(); renderAll(); };
+  const nameRow = el('div', 'copyrow'); nameRow.append(name, saveName);
+  const link = el('input'); link.readOnly = true; link.value = inviteUrl(s.invite_code);
+  const copy = el('button', null, 'Copiar'); copy.onclick = async () => { try { await navigator.clipboard.writeText(link.value); toast('Link copiado.'); } catch (e) { link.select(); } };
+  const regen = el('button', 'danger', 'Gerar novo');
+  regen.onclick = async () => { if (!confirm('O link atual vai parar de funcionar. Continuar?')) return; const { data, error } = await sb.rpc('new_invite', { p_server: s.id }); if (error) return toast(error.message); s.invite_code = data; link.value = inviteUrl(data); toast('Novo link gerado.'); };
+  const linkRow = el('div', 'copyrow'); linkRow.append(link, copy, regen);
+  const chList = el('div'); chList.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  const limitSel = v => { const sel = el('select'); [[0, 'Sem limite'], [2, '2 pessoas'], [3, '3 pessoas'], [4, '4 pessoas'], [5, '5 pessoas'], [10, '10 pessoas']].forEach(([n, t]) => { const o = el('option', null, t); o.value = n; sel.appendChild(o); }); sel.value = v; return sel; };
+  const drawChannels = () => {
+    chList.innerHTML = '';
+    channels.filter(c => c.kind === 'voice').forEach(c => {
+      const r = el('div', 'chedit');
+      const n = el('input'); n.value = c.name; n.maxLength = 32;
+      const l = limitSel(c.max_users);
+      const sv = el('button', null, 'Salvar');
+      sv.onclick = async () => { const { error } = await sb.from('channels').update({ name: n.value.trim(), max_users: Number(l.value) }).eq('id', c.id); toast(error ? 'Não consegui salvar.' : 'Canal salvo.'); await loadChannels(); renderAll(); };
+      const del = el('button', 'danger', 'Apagar');
+      del.onclick = async () => { if (!confirm('Apagar o canal ' + c.name + ' e as mensagens dele?')) return; await sb.from('channels').delete().eq('id', c.id); await loadChannels(); drawChannels(); renderAll(); };
+      r.append(n, l, sv, del); chList.appendChild(r);
+    });
+  };
+  drawChannels();
+  const newName = el('input'); newName.placeholder = 'Nome do novo canal'; newName.maxLength = 32;
+  const newLim = limitSel(0);
+  const addB = el('button', 'primary', 'Criar');
+  addB.onclick = async () => {
+    const n = newName.value.trim(); if (!n) return toast('Dê um nome ao canal.');
+    const { error } = await sb.from('channels').insert({ server_id: s.id, name: n, max_users: Number(newLim.value), position: channels.filter(c => c.kind === 'voice').length });
+    if (error) return toast('Não consegui criar o canal.');
+    newName.value = ''; await loadChannels(); drawChannels(); renderAll();
+  };
+  const addRow = el('div', 'chedit'); addRow.append(newName, newLim, addB);
+  const delSrv = el('button', 'danger', 'Apagar servidor');
+  delSrv.onclick = async () => {
+    const t = prompt('Isso apaga o servidor, os canais e as mensagens. Digite o nome do servidor para confirmar:');
+    if (t !== s.name) return;
+    await sb.from('servers').delete().eq('id', s.id); closeModal(); await loadServers(); openServer(PUBLIC_ID);
+  };
+  openModal('Configurações do servidor', [
+    el('div', 'lbl', 'Nome'), nameRow,
+    el('div', 'lbl', 'Link de convite'), linkRow,
+    el('div', 'lbl', 'Canais (voz + chat)'), chList, addRow,
+    el('div', 'lbl', 'Zona de perigo'), delSrv,
+  ], [['Fechar', closeModal]], true);
+}
 
+/* ===================== Presença nas salas (Supabase Realtime) ===================== */
+function joinPresence(allowPublic) {
+  const sid = curServer;
+  const ch = sb.channel('srv:' + sid, { config: { private: !allowPublic, presence: { key: peerId || me } } });
+  presence = ch;
+  ch.on('presence', { event: 'sync' }, () => { if (presence === ch) onPresence(); });
+  ch.subscribe(async status => {
+    if (presence !== ch) return;
+    if (status === 'SUBSCRIBED') { await trackMe(); setTimeout(() => { if (presence === ch) presenceReady = true; }, 3000); }
+    if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !allowPublic) { presence = null; try { await sb.removeChannel(ch); } catch (e) {} if (curServer === sid) joinPresence(true); }
+  });
+}
+async function trackMe() {
+  if (!presence) return;
+  try { await presence.track({ uid: me, peer: peerId, room: myRoom, seq: mySeq, screen: !!local.screen, cam: !!local.cam, mic: !!local.mic }); } catch (e) {}
+}
+async function onPresence() {
+  const state = presence.presenceState();
+  const next = new Map();
+  Object.values(state).forEach(arr => { const m = arr[arr.length - 1]; if (m && m.peer) next.set(m.peer, { id: m.peer, uid: m.uid, room: m.room, seq: m.seq, screen: m.screen, cam: m.cam, mic: m.mic }); });
+  members = next;
+  await ensureProfiles([...members.values()].map(m => m.uid));
+  syncMedia(); cleanupMusic(); syncMusic(); renderAll();
+}
+const countIn = cid => [...members.values()].filter(m => m.room === cid).length;
+const chan = id => channels.find(c => c.id === id);
+function joinVoice(cid) {
+  const c = chan(cid); if (!c || c.kind !== 'voice' || cid === myRoom) return;
+  if (c.max_users && countIn(cid) >= c.max_users) return toast('Esse canal já está cheio (' + c.max_users + ' pessoas).');
+  leaveRoomMedia();
+  myRoom = cid; mySeq = Date.now();
+  trackMe(); syncMusic(); renderAll();
+}
+function leaveVoice() {
+  if (!myRoom) return;
+  KINDS.forEach(k => { if (local[k]) stopLocal(k, true); });
+  leaveRoomMedia(); myRoom = null; trackMe(); syncMusic(); renderAll();
+}
+
+/* ===================== Chamadas (PeerJS, direto entre navegadores) ===================== */
+function bootPeer() {
+  return new Promise(res => {
+    const p = new Peer();
+    let done = false;
+    p.on('open', id => { peer = p; peerId = id; if (!done) { done = true; res(); } else trackMe(); });
+    p.on('call', onCall);
+    p.on('disconnected', () => { try { p.reconnect(); } catch (e) {} });
+    p.on('error', e => { if (e.type === 'peer-unavailable') return; if (!done) { done = true; res(); } });
+    setTimeout(() => { if (!done) { done = true; res(); } }, 8000);
+  });
+}
+const roomPeers = () => [...members.values()].filter(m => m.room && m.room === myRoom && m.id !== peerId);
+const labelFor = (uid, k) => k === 'screen' ? dn(uid) + ' · tela' : dn(uid);
 function syncMedia() {
   if (!peer) return;
   const peers = roomPeers();
   const pm = new Map(peers.map(m => [m.id, m]));
   const want = new Set();
-  // envia o que eu tenho ligado para cada pessoa da sala
   peers.forEach(m => KINDS.forEach(k => {
     if (!local[k]) return;
     const key = m.id + ':' + k + ':' + m.seq;
@@ -636,19 +883,14 @@ function syncMedia() {
     c.on('error', () => {});
   }));
   outCalls.forEach((c, key) => { if (!want.has(key)) { try { c.close(); } catch (e) {} outCalls.delete(key); } });
-  // remove o que a pessoa desligou ou de quem saiu da sala
-  inCalls.forEach((c, key) => {
-    const [id, k] = key.split(':'); const m = pm.get(id);
-    if (!m || !m[k]) { inCalls.delete(key); try { c.close(); } catch (e) {} dropRemote(id, k); }
-  });
+  inCalls.forEach((c, key) => { const [id, k] = key.split(':'); const m = pm.get(id); if (!m || !m[k]) { inCalls.delete(key); try { c.close(); } catch (e) {} dropRemote(id, k); } });
   tiles.forEach((t, key) => {
-    if (key.startsWith('me:')) return;
+    if (key.startsWith('me:') || key.startsWith('p:')) return;
     const [id, k] = key.split(':'); const m = pm.get(id);
-    if (!m || !m[k]) dropRemote(id, k); else setLabel(t, labelFor(m.name, k));
+    if (!m || !m[k]) dropRemote(id, k); else setLabel(t, labelFor(m.uid, k));
   });
   audios.forEach((a, id) => { const m = pm.get(id); if (!m || !m.mic) dropRemote(id, 'mic'); });
 }
-
 function leaveRoomMedia() {
   outCalls.forEach(c => { try { c.close(); } catch (e) {} }); outCalls.clear();
   inCalls.forEach(c => { try { c.close(); } catch (e) {} }); inCalls.clear();
@@ -656,7 +898,6 @@ function leaveRoomMedia() {
   [...audios.keys()].forEach(id => dropRemote(id, 'mic'));
   focusId = null;
 }
-
 function onCall(call) {
   const k = (call.metadata && call.metadata.kind) || 'screen';
   const key = call.peer + ':' + k;
@@ -668,21 +909,18 @@ function onCall(call) {
     if (inCalls.get(key) !== call) return;
     const m = members.get(call.peer);
     if (k === 'mic') addAudio(call.peer, s);
-    else addTile(key, s, labelFor(m ? m.name : 'Convidado', k), false, k);
+    else addTile(key, s, labelFor(m ? m.uid : '', k), false, k, call.peer);
   });
   call.on('close', () => { if (inCalls.get(key) === call) { inCalls.delete(key); dropRemote(call.peer, k); } });
   call.on('error', () => {});
 }
-
-const labelFor = (name, k) => k === 'screen' ? name + ' · tela' : name;
-
 function dropRemote(id, k) {
   if (k === 'mic') { unwatchVoice(id); const a = audios.get(id); if (a) { a.srcObject = null; a.remove(); audios.delete(id); } }
   else removeTile(id + ':' + k);
 }
 
 let actx = null;
-const meters = new Map();   // id -> analisador de volume
+const meters = new Map();
 function getCtx() {
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
   if (actx.state === 'suspended') actx.resume().catch(() => {});
@@ -691,14 +929,9 @@ function getCtx() {
 document.addEventListener('click', () => { if (actx && actx.state === 'suspended') actx.resume().catch(() => {}); });
 function watchVoice(id, stream) {
   const ctx = getCtx(); if (!ctx) return;
-  try {
-    const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser();
-    an.fftSize = 512; src.connect(an);
-    meters.set(id, { an, buf: new Uint8Array(an.fftSize), src });
-  } catch (e) {}
+  try { const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an); meters.set(id, { an, buf: new Uint8Array(an.fftSize), src }); } catch (e) {}
 }
 function unwatchVoice(id) { const m = meters.get(id); if (m) { try { m.src.disconnect(); } catch (e) {} meters.delete(id); } }
-// borda verde em quem está falando
 setInterval(() => {
   const talking = new Set();
   meters.forEach((m, id) => {
@@ -706,10 +939,8 @@ setInterval(() => {
     let sum = 0; for (let i = 0; i < m.buf.length; i++) { const v = (m.buf[i] - 128) / 128; sum += v * v; }
     if (Math.sqrt(sum / m.buf.length) > 0.035) talking.add(id);
   });
-  document.querySelectorAll('.av[data-uid]').forEach(a => a.classList.toggle('speaking', talking.has(a.dataset.uid)));
-  tiles.forEach(t => t.classList.toggle('talk', !!t.dataset.uid && talking.has(t.dataset.uid)));
+  document.querySelectorAll('[data-speak]').forEach(a => a.classList.toggle(a.classList.contains('tile') ? 'talk' : 'speaking', talking.has(a.dataset.speak)));
 }, 120);
-
 function addAudio(id, s) {
   let a = audios.get(id);
   if (!a) { a = document.createElement('audio'); a.autoplay = true; document.body.appendChild(a); audios.set(id, a); }
@@ -717,172 +948,59 @@ function addAudio(id, s) {
   unwatchVoice(id); watchVoice(id, s);
   a.play().catch(() => { $('sound').style.display = 'block'; });
 }
-$('sound').onclick = () => { audios.forEach(a => a.play().catch(() => {})); if (ytPlayer && music[myRoom] && music[myRoom].kind === 'yt') ytPlayer.playVideo(); $('sound').style.display = 'none'; };
+$('sound').onclick = () => { audios.forEach(a => a.play().catch(() => {})); if (ytPlayer && curMusic() && curMusic().kind === 'yt') ytPlayer.playVideo(); $('sound').style.display = 'none'; };
 
-/* ================= Meus dispositivos ================= */
+/* meus dispositivos */
+const pref = { cam: '', mic: '' };
+try { pref.cam = localStorage.getItem('tela_cam') || ''; pref.mic = localStorage.getItem('tela_mic') || ''; } catch (e) {}
+const camConstraints = () => Object.assign({ width: { ideal: 1280 }, height: { ideal: 720 } }, pref.cam ? { deviceId: { exact: pref.cam } } : {});
+const micConstraints = () => Object.assign({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, pref.mic ? { deviceId: { exact: pref.mic } } : {});
 async function toggle(kind) {
   if (local[kind]) return stopLocal(kind);
+  if (!myRoom) return toast('Entre num canal de voz primeiro (clique num canal na lateral).');
   let s;
   try {
     if (kind === 'screen') {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return toast('Este navegador não permite compartilhar a tela. Você ainda pode assistir.');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return toast('Este navegador não permite compartilhar a tela.');
       s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true });
-    } else if (kind === 'cam') {
-      s = await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false });
-    } else {
-      s = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false });
-    }
+    } else if (kind === 'cam') s = await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false });
+    else s = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false });
   } catch (e) {
-    // aparelho salvo não existe mais: tenta de novo com o padrão
     if (kind !== 'screen' && pref[kind]) { pref[kind] = ''; try { localStorage.removeItem('tela_' + kind); } catch (x) {} return toggle(kind); }
     if (kind !== 'screen') toast('Não consegui acessar ' + (kind === 'cam' ? 'a câmera' : 'o microfone') + '. Verifique a permissão do navegador.');
     return;
   }
+  if (!myRoom) { s.getTracks().forEach(t => t.stop()); return; }
   local[kind] = s;
   s.getTracks().forEach(t => t.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); }));
-  if (kind !== 'mic') addTile('me:' + kind, s, labelFor(myName + ' (você)', kind), true, kind);
-  if (kind !== 'screen') loadDevices();
-  if (kind === 'mic' && peer) watchVoice(peer.id, s);
-  updateButtons(); sendState(); syncMedia(); renderAll();
+  if (kind !== 'mic') addTile('me:' + kind, s, labelFor(me, kind) + ' (você)', true, kind, peerId);
+  if (kind === 'mic') watchVoice(peerId, s); else if (kind === 'cam') loadDevices();
+  trackMe(); syncMedia(); renderAll();
 }
-
-function stopLocal(kind) {
+function stopLocal(kind, quiet) {
   const s = local[kind]; local[kind] = null;
   if (s) s.getTracks().forEach(t => t.stop());
   outCalls.forEach((c, key) => { if (key.split(':')[1] === kind) { try { c.close(); } catch (e) {} outCalls.delete(key); } });
   removeTile('me:' + kind);
-  if (kind === 'mic' && peer) unwatchVoice(peer.id);
-  updateButtons(); sendState(); renderAll();
+  if (kind === 'mic') unwatchVoice(peerId);
+  if (!quiet) { trackMe(); renderAll(); }
 }
-
 function updateButtons() {
   const set = (id, cls, icon, tip) => { const b = $(id); b.className = 'rb' + (cls ? ' ' + cls : ''); b.innerHTML = icon; b.dataset.tip = tip; };
   set('camBtn', local.cam ? 'on' : '', local.cam ? ICON.cam : ICON.camOff, local.cam ? 'Desligar câmera' : 'Ligar câmera');
   set('screenBtn', local.screen ? 'live' : '', ICON.screen, local.screen ? 'Parar de transmitir' : 'Compartilhar tela');
   set('micBtn', local.mic ? 'on' : 'mut', local.mic ? ICON.mic : ICON.micOff, local.mic ? 'Desligar microfone' : 'Ligar microfone');
-  $('devBtn').innerHTML = ICON.gear;
-  $('micMini').innerHTML = local.mic ? ICON.mic : ICON.micOff;
-  $('micMini').className = 'ib' + (local.mic ? '' : ' off');
-  $('devMini').innerHTML = ICON.gear;
+  $('devBtn').innerHTML = ICON.gear; $('leaveBtn').innerHTML = ICON.leave;
+  $('micMini').innerHTML = local.mic ? ICON.mic : ICON.micOff; $('micMini').className = 'ib' + (local.mic ? '' : ' off');
+  $('devMini').innerHTML = ICON.gear; $('reportMini').innerHTML = ICON.flag; $('leaveMini').innerHTML = ICON.leave;
+  $('leaveBtn').style.display = myRoom ? '' : 'none';
 }
 $('micBtn').onclick = () => toggle('mic');
 $('micMini').onclick = () => toggle('mic');
-$('devMini').onclick = e => $('devBtn').onclick(e);
 $('camBtn').onclick = () => toggle('cam');
 $('screenBtn').onclick = () => toggle('screen');
-
-/* ================= Música (tocada em sincronia em cada navegador da sala) ================= */
-function parseLink(t) {
-  let m = t.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/);
-  if (m) return { kind: 'yt', id: m[1], url: 'https://www.youtube.com/watch?v=' + m[1] };
-  m = t.match(/open\.spotify\.com\/(?:intl-[\w-]+\/)?track\/([A-Za-z0-9]{10,30})/) || t.match(/spotify:track:([A-Za-z0-9]{10,30})/);
-  if (m) return { kind: 'sp', id: m[1], url: 'https://open.spotify.com/track/' + m[1] };
-  if (/open\.spotify\.com\/(playlist|album)/.test(t)) return { err: 'Mande o link de uma música só, não de playlist ou álbum.' };
-  return null;
-}
-
-async function getTitle(url) {
-  try { const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent(url)); const j = await r.json(); return j.title || ''; } catch (e) { return ''; }
-}
-
-async function musicRequest(text) {
-  const t = text.trim();
-  if (/^!(pular|parar|skip|stop)\b/i.test(t)) return send({ t: 'music', action: 'skip' });
-  const link = parseLink(t);
-  if (link && link.err) return toast(link.err);
-  if (link) return send({ t: 'music', action: 'play', kind: link.kind, id: link.id, title: await getTitle(link.url) });
-  const q = t.match(/^!tocar\s+(.+)/i);
-  if (!q) return;
-  if (!YT_API_KEY) return toast('Para pedir pelo nome precisa da chave do YouTube. Por enquanto mande o link da música.');
-  try {
-    const r = await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=' + encodeURIComponent(q[1]) + '&key=' + YT_API_KEY);
-    const it = (await r.json()).items[0];
-    send({ t: 'music', action: 'play', kind: 'yt', id: it.id.videoId, title: it.snippet.title.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"') });
-  } catch (e) { toast('Não encontrei essa música.'); }
-}
-
-let ytReady = null, ytPlayer = null, spReady = null, spCtl = null, playingKey = '', endSent = '';
-function loadScript(src) { const s = document.createElement('script'); s.src = src; document.head.appendChild(s); }
-function loadYT() { if (!ytReady) ytReady = new Promise(res => { window.onYouTubeIframeAPIReady = res; loadScript('https://www.youtube.com/iframe_api'); }); return ytReady; }
-function loadSP() { if (!spReady) spReady = new Promise(res => { window.onSpotifyIframeApiReady = res; loadScript('https://open.spotify.com/embed/iframe-api/v1'); }); return spReady; }
-const vol = () => Number($('npVol').value);
-const elapsed = c => Math.max(0, (hubNow() - c.startedAt) / 1000);
-
-function stopPlayers() {
-  try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch (e) {}
-  try { if (spCtl) spCtl.pause(); } catch (e) {}
-  $('ytBox').style.display = 'none'; $('spBox').style.display = 'none';
-}
-
-function renderNP(cur) {
-  const show = !!cur;
-  if (($('np').style.display === 'flex') !== show) { $('np').style.display = show ? 'flex' : 'none'; layout(); }
-  if (!cur) return;
-  $('npTitle').textContent = cur.title;
-  $('npBy').textContent = 'Pedido por ' + cur.by + (cur.kind === 'sp' ? ' · Spotify (sem login toca só 30s)' : ' · YouTube');
-  $('npVol').style.display = cur.kind === 'yt' ? '' : 'none';
-}
-
-function reportEnd() {
-  const cur = music[myRoom];
-  if (!cur || endSent === mkey(cur)) return;
-  // no Spotify só quem pediu avisa o fim (quem não tem login ouve só a prévia)
-  if (cur.kind === 'sp' && cur.byId !== (peer && peer.id)) return;
-  endSent = mkey(cur);
-  send({ t: 'music', action: 'end', key: endSent });
-}
-
-async function syncMusic() {
-  const cur = music[myRoom], key = mkey(cur);
-  renderNP(cur);
-  if (key === playingKey) return;
-  playingKey = key;
-  stopPlayers();
-  if (!cur) return;
-  if (cur.kind === 'yt') {
-    await loadYT(); if (playingKey !== key) return;
-    $('ytBox').style.display = 'block';
-    if (!ytPlayer) {
-      await new Promise(res => {
-        ytPlayer = new YT.Player('ytPlayer', {
-          width: 128, height: 72, videoId: cur.id,
-          playerVars: { autoplay: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, start: Math.floor(elapsed(cur)) },
-          events: {
-            onReady: e => { e.target.setVolume(vol()); e.target.seekTo(elapsed(cur), true); e.target.playVideo(); res(); },
-            onStateChange: e => { if (e.data === 0) reportEnd(); if (e.data === 1) $('sound').style.display = 'none'; },
-          },
-        });
-      });
-    } else {
-      ytPlayer.loadVideoById({ videoId: cur.id, startSeconds: elapsed(cur) });
-      ytPlayer.setVolume(vol());
-    }
-    setTimeout(() => { if (playingKey === key && ytPlayer.getPlayerState && ytPlayer.getPlayerState() !== 1) $('sound').style.display = 'block'; }, 3000);
-  } else {
-    const api = await loadSP(); if (playingKey !== key) return;
-    $('spBox').style.display = 'block';
-    const uri = 'spotify:track:' + cur.id;
-    const start = () => { try { spCtl.play(); const t = elapsed(cur); if (t > 2) setTimeout(() => spCtl.seek(t), 600); } catch (e) {} };
-    if (!spCtl) {
-      api.createController($('spPlayer'), { uri, width: '100%', height: 80 }, c => {
-        spCtl = c;
-        c.addListener('ready', start);
-        c.addListener('playback_update', e => { const p = e.data; if (p.duration > 0 && p.position >= p.duration - 1500) reportEnd(); });
-      });
-    } else { spCtl.loadUri(uri); setTimeout(start, 800); }
-  }
-}
-
-try { const v = localStorage.getItem('tela_vol'); if (v) $('npVol').value = v; } catch (e) {}
-$('npVol').oninput = () => { if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(vol()); try { localStorage.setItem('tela_vol', vol()); } catch (e) {} };
-$('npSkip').onclick = () => send({ t: 'music', action: 'skip' });
-
-/* ================= Escolher câmera e microfone ================= */
-const pref = { cam: '', mic: '' };
-try { pref.cam = localStorage.getItem('tela_cam') || ''; pref.mic = localStorage.getItem('tela_mic') || ''; } catch (e) {}
-const camConstraints = () => Object.assign({ width: { ideal: 1280 }, height: { ideal: 720 } }, pref.cam ? { deviceId: { exact: pref.cam } } : {});
-const micConstraints = () => Object.assign({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, pref.mic ? { deviceId: { exact: pref.mic } } : {});
-
+$('leaveBtn').onclick = leaveVoice;
+$('leaveMini').onclick = leaveVoice;
 async function loadDevices() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
   const list = await navigator.mediaDevices.enumerateDevices();
@@ -892,121 +1010,87 @@ async function loadDevices() {
     if (!devs.length) { const o = el('option', null, 'Nenhum encontrado'); o.value = ''; sel.appendChild(o); sel.disabled = true; return false; }
     sel.disabled = false;
     devs.forEach((d, i) => { const o = el('option', null, d.label || (base + ' ' + (i + 1))); o.value = d.deviceId; sel.appendChild(o); });
-    // mostra o que está em uso agora, ou a preferência salva
     const active = local[kind === 'videoinput' ? 'cam' : 'mic'];
     const inUse = active && active.getTracks()[0] && active.getTracks()[0].getSettings().deviceId;
     sel.value = inUse || chosen || devs[0].deviceId;
     return devs.some(d => !d.label);
   };
-  const noLabelCam = fill($('camSel'), 'videoinput', pref.cam, 'Câmera');
-  const noLabelMic = fill($('micSel'), 'audioinput', pref.mic, 'Microfone');
-  $('devHint').textContent = (noLabelCam || noLabelMic)
-    ? 'Para ver o nome dos aparelhos, ligue a câmera ou o microfone uma vez e permita o acesso.'
-    : 'A troca vale na hora, mesmo com a câmera ou o microfone ligados.';
+  const a = fill($('camSel'), 'videoinput', pref.cam, 'Câmera'), b = fill($('micSel'), 'audioinput', pref.mic, 'Microfone');
+  $('devHint').textContent = (a || b) ? 'Para ver o nome dos aparelhos, ligue a câmera ou o microfone uma vez e permita o acesso.' : 'A troca vale na hora, mesmo com a câmera ou o microfone ligados.';
 }
-
 async function switchDevice(kind, deviceId) {
   pref[kind] = deviceId;
   try { localStorage.setItem('tela_' + kind, deviceId); } catch (e) {}
-  const old = local[kind];
-  if (!old) return; // desligado: só guarda a escolha para quando ligar
+  const old = local[kind]; if (!old) return;
   let s;
-  try {
-    s = kind === 'cam'
-      ? await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false })
-      : await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false });
-  } catch (e) { toast('Não consegui usar esse aparelho. Ele pode estar em uso por outro programa.'); loadDevices(); return; }
-  const newTrack = s.getTracks()[0];
-  // troca a faixa nas transmissões em andamento, sem derrubar a chamada
-  outCalls.forEach((c, key) => {
-    if (key.split(':')[1] !== kind || !c.peerConnection) return;
-    c.peerConnection.getSenders().forEach(snd => { if (snd.track && snd.track.kind === newTrack.kind) snd.replaceTrack(newTrack).catch(() => {}); });
-  });
+  try { s = kind === 'cam' ? await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false }) : await navigator.mediaDevices.getUserMedia({ audio: micConstraints(), video: false }); }
+  catch (e) { toast('Não consegui usar esse aparelho. Ele pode estar em uso por outro programa.'); loadDevices(); return; }
+  const nt = s.getTracks()[0];
+  outCalls.forEach((c, key) => { if (key.split(':')[1] !== kind || !c.peerConnection) return; c.peerConnection.getSenders().forEach(snd => { if (snd.track && snd.track.kind === nt.kind) snd.replaceTrack(nt).catch(() => {}); }); });
   local[kind] = s;
-  newTrack.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); });
+  nt.addEventListener('ended', () => { if (local[kind] === s) stopLocal(kind); });
   old.getTracks().forEach(t => t.stop());
   if (kind === 'cam') { const t = tiles.get('me:cam'); if (t) t.querySelector('video').srcObject = s; }
-  if (kind === 'mic' && peer) { unwatchVoice(peer.id); watchVoice(peer.id, s); }
+  if (kind === 'mic') { unwatchVoice(peerId); watchVoice(peerId, s); }
   toast((kind === 'cam' ? 'Câmera' : 'Microfone') + ' trocado.');
 }
-
 $('camSel').onchange = e => switchDevice('cam', e.target.value);
 $('micSel').onchange = e => switchDevice('mic', e.target.value);
 $('devBtn').onclick = e => { e.stopPropagation(); const p = $('devPanel'); p.classList.toggle('open'); if (p.classList.contains('open')) loadDevices(); };
+$('devMini').onclick = e => { if (mode !== 'server') openServer(curServer); $('devBtn').onclick(e); };
 $('devPanel').onclick = e => e.stopPropagation();
-document.addEventListener('click', () => $('devPanel').classList.remove('open'));
+document.addEventListener('click', () => { $('devPanel').classList.remove('open'); closeMenu(); closePop(); });
 if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', () => { if ($('devPanel').classList.contains('open')) loadDevices(); });
 
-/* ================= Vídeos e layout ================= */
+/* ===================== Quadros e layout ===================== */
 const $grid = $('grid'), $strip = $('strip'), $empty = $('empty');
-
-function setLabel(t, txt) { const sp = t.querySelector('.bar span'); if (sp.textContent !== txt) sp.textContent = txt; }
-
-// quadros com o avatar de quem está na sala sem câmera (como numa chamada de voz)
-function syncParticipants() {
-  if (!peer) return;
-  const inRoom = myRoom ? [...members.values()].filter(m => m.room === myRoom) : [];
-  if (myRoom && !inRoom.some(m => m.id === peer.id)) inRoom.unshift({ id: peer.id, name: myName });
-  const want = new Set();
-  inRoom.forEach(m => {
-    const isMe = m.id === peer.id;
-    const st = isMe ? { cam: !!local.cam, mic: !!local.mic } : m;
-    if (st.cam) return;
-    const key = 'p:' + m.id; want.add(key);
-    let t = tiles.get(key);
-    const name = isMe ? myName + ' (você)' : m.name;
-    const photo = isMe ? myAvatar : avatars.get(m.id);
-    const sig = name + '|' + (photo ? photo.length : 0) + '|' + st.mic;
-    if (t && t.dataset.sig === sig) return;
-    if (!t) {
-      t = document.createElement('div'); t.className = 'tile ptile'; t.dataset.id = key; t.dataset.uid = m.id;
-      t.addEventListener('click', () => { focusId = (focusId === key) ? null : key; layout(); });
-      tiles.set(key, t); $grid.insertBefore(t, $strip);
-    }
-    t.dataset.sig = sig;
-    t.innerHTML = '<div class="pav"></div><div class="bar"><span></span></div>';
-    t.querySelector('.pav').appendChild(avatarEl(m.id, isMe ? myName : m.name, 0, photo));
-    const sp = t.querySelector('.bar span');
-    if (!st.mic) sp.innerHTML = ICON.micOff;
-    sp.append(name);
-  });
-  [...tiles.keys()].forEach(k => { if (k.startsWith('p:') && !want.has(k)) { tiles.get(k).remove(); tiles.delete(k); } });
-  layout();
-}
-
-function addTile(key, stream, label, mine, kind) {
+function setLabel(t, txt) { const sp = t.querySelector('.bar span'); if (sp && sp.textContent !== txt) sp.textContent = txt; }
+function addTile(key, stream, label, mine, kind, speak) {
   let t = tiles.get(key);
   if (t) { t.querySelector('video').srcObject = stream; setLabel(t, label); return; }
   t = document.createElement('div');
   t.className = 'tile' + (kind === 'cam' ? ' cam' : '') + (mine && kind === 'cam' ? ' mirror' : '');
   t.dataset.id = key;
-  if (kind === 'cam') t.dataset.uid = mine ? (peer ? peer.id : '') : key.split(':')[0];
-  t.innerHTML = '<video autoplay playsinline muted></video><div class="bar"><span></span><div>' +
-    (!mine && kind === 'screen' ? '<button data-a="som">Ativar som</button>' : '') +
-    '<button data-a="full">Tela cheia</button></div></div>';
+  if (kind === 'cam' && speak) t.dataset.speak = speak;
+  t.innerHTML = '<video autoplay playsinline muted></video><div class="bar"><span></span><div>' + (!mine && kind === 'screen' ? '<button data-a="som">Ativar som</button>' : '') + '<button data-a="full">Tela cheia</button></div></div>';
   setLabel(t, label);
-  const v = t.querySelector('video');
-  v.srcObject = stream;
+  const v = t.querySelector('video'); v.srcObject = stream;
   const full = () => (t.requestFullscreen || t.webkitRequestFullscreen).call(t);
-  t.querySelector('[data-a="full"]').onclick = full;
-  v.ondblclick = full;
+  t.querySelector('[data-a="full"]').onclick = full; v.ondblclick = full;
   const som = t.querySelector('[data-a="som"]');
   if (som) som.onclick = () => { v.muted = !v.muted; som.textContent = v.muted ? 'Ativar som' : 'Silenciar'; v.play(); };
   t.querySelectorAll('button').forEach(b => b.addEventListener('click', ev => ev.stopPropagation()));
   t.addEventListener('click', () => { focusId = (focusId === key) ? null : key; layout(); });
-  tiles.set(key, t);
-  $grid.insertBefore(t, $strip);
+  tiles.set(key, t); $grid.insertBefore(t, $strip); layout();
+}
+function removeTile(key) { const t = tiles.get(key); if (!t) return; const v = t.querySelector('video'); if (v) v.srcObject = null; t.remove(); tiles.delete(key); layout(); }
+function syncParticipants() {
+  const inRoom = myRoom ? [...members.values()].filter(m => m.room === myRoom) : [];
+  if (myRoom && peerId && !inRoom.some(m => m.id === peerId)) inRoom.unshift({ id: peerId, uid: me });
+  const want = new Set();
+  inRoom.forEach(m => {
+    const isMe = m.id === peerId;
+    const st = isMe ? { cam: !!local.cam, mic: !!local.mic } : m;
+    if (st.cam) return;
+    const key = 'p:' + m.id; want.add(key);
+    let t = tiles.get(key);
+    const p = profiles.get(m.uid) || {};
+    const name = dn(m.uid) + (isMe ? ' (você)' : '');
+    const sig = name + '|' + (p.avatar ? p.avatar.length : 0) + '|' + st.mic;
+    if (t && t.dataset.sig === sig) return;
+    if (!t) {
+      t = document.createElement('div'); t.className = 'tile ptile'; t.dataset.id = key; t.dataset.speak = m.id;
+      t.addEventListener('click', () => { focusId = (focusId === key) ? null : key; layout(); });
+      tiles.set(key, t); $grid.insertBefore(t, $strip);
+    }
+    t.dataset.sig = sig;
+    t.innerHTML = '<div class="pav"></div><div class="bar"><span></span></div>';
+    t.querySelector('.pav').appendChild(avatarEl(m.uid, 0));
+    const sp = t.querySelector('.bar span'); if (!st.mic) sp.innerHTML = ICON.micOff; sp.append(name);
+  });
+  [...tiles.keys()].forEach(k => { if (k.startsWith('p:') && !want.has(k)) { tiles.get(k).remove(); tiles.delete(k); } });
   layout();
 }
-
-function removeTile(key) {
-  const t = tiles.get(key);
-  if (!t) return;
-  const v = t.querySelector('video'); if (v) v.srcObject = null;
-  t.remove(); tiles.delete(key);
-  layout();
-}
-
 function layout() {
   const list = [...tiles.values()];
   if (focusId && !tiles.has(focusId)) focusId = null;
@@ -1022,14 +1106,12 @@ function layout() {
     });
   } else {
     list.forEach(t => { t.classList.remove('focused'); if (t.parentNode !== $grid) $grid.insertBefore(t, $strip); });
-    // escolhe colunas/linhas que deixam cada tela 16:9 o maior possível
     const n = Math.max(list.length, 1);
-    const W = $grid.clientWidth - 32, H = $grid.clientHeight - 24;
+    const W = $grid.clientWidth - 24, H = $grid.clientHeight - 24;
     let best = 1, bestSize = 0;
     for (let c = 1; c <= n; c++) {
       const r = Math.ceil(n / c);
-      const w = (W - (c - 1) * 10) / c, h = (H - (r - 1) * 10) / r;
-      const size = Math.min(w, h * 16 / 9);
+      const size = Math.min((W - (c - 1) * 8) / c, ((H - (r - 1) * 8) / r) * 16 / 9);
       if (size > bestSize) { bestSize = size; best = c; }
     }
     $grid.style.gridTemplateColumns = `repeat(${best}, minmax(0,1fr))`;
@@ -1039,235 +1121,646 @@ function layout() {
 }
 window.addEventListener('resize', layout);
 
-/* ================= Barra lateral, topo e chat ================= */
-const countIn = room => [...members.values()].filter(m => m.room === room).length;
-
-function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-
-function memberLine(m, size) {
-  const isMe = peer && m.id === peer.id;
+/* ===================== Barra lateral e topo ===================== */
+function showMode() {
+  const dm = mode === 'dm';
+  $('grid').style.display = dm ? 'none' : 'grid';
+  $('friendsView').style.display = dm ? 'flex' : 'none';
+  $('controls').style.display = dm ? 'none' : 'flex';
+  if (dm) renderFriends();
+  renderNP(curMusic());
+  layout();
+}
+function memberLine(m) {
+  const isMe = m.id === peerId;
   const st = isMe ? { screen: !!local.screen, cam: !!local.cam, mic: !!local.mic } : m;
   const line = el('div');
-  line.appendChild(avatarEl(m.id, isMe ? myName : m.name, size, isMe ? myAvatar : undefined));
-  line.appendChild(el('span', 'n', isMe ? myName : m.name));
+  line.appendChild(avatarEl(m.uid, 26, m.id));
+  line.appendChild(el('span', 'n', dn(m.uid)));
   if (st.screen) line.appendChild(el('span', 'st live', 'AO VIVO'));
-  if (st.cam) { const i = el('span'); i.innerHTML = ICON.cam; line.appendChild(i.firstChild); }
-  if (!st.mic) { const i = el('span'); i.innerHTML = ICON.micOff; i.firstChild.classList.add('off'); line.appendChild(i.firstChild); }
+  if (st.cam) line.appendChild(iconEl('cam'));
+  if (!st.mic) { const i = iconEl('micOff'); i.classList.add('off'); line.appendChild(i); }
+  line.onclick = e => { e.stopPropagation(); showCard(m.uid, e); };
   return line;
 }
-
 function renderNav() {
-  const nav = $('nav');
-  nav.innerHTML = '';
-  nav.appendChild(el('div', 'sec', 'Canais'));
-  ROOMS.forEach(r => {
-    const n = countIn(r.id);
-    const full = r.max && n >= r.max && myRoom !== r.id;
-    const row = el('div', 'ch' + ((myRoom === r.id || (!myRoom && curChat === r.id)) ? ' active' : '') + (full ? ' full' : ''));
-    const ico = el('span', 'ico'); ico.innerHTML = r.max ? ICON.lock : ICON.speaker; row.appendChild(ico);
-    row.appendChild(el('span', 'nm', r.name));
-    if (unread[r.id]) row.appendChild(el('span', 'badge', String(unread[r.id])));
-    if (r.max) row.appendChild(el('span', 'tag', n + '/' + r.max));
-    row.title = full ? 'Sala cheia' : 'Entrar na ' + r.name;
-    row.onclick = () => openChannel(r.id);
+  const nav = $('nav'); nav.innerHTML = '';
+  $('voice').classList.toggle('on', !!myRoom);
+  if (myRoom) $('voiceRoom').textContent = ((chan(myRoom) || {}).name || '') + ' / ' + ((srv() || {}).name || '');
+  if (mode === 'dm') return renderDmNav(nav);
+  const s = srv();
+  $('srvName').textContent = s ? s.name : 'xcordbr';
+  const sec = el('div', 'sec'); sec.appendChild(el('span', null, 'Canais'));
+  if (s && s.owner_id === me) { const b = el('button', null, '+'); b.title = 'Configurar canais'; b.onclick = serverSettings; sec.appendChild(b); }
+  nav.appendChild(sec);
+  channels.filter(c => c.kind === 'voice').forEach(c => {
+    const n = countIn(c.id);
+    const full = c.max_users && n >= c.max_users && myRoom !== c.id;
+    const u = unread.get('ch:' + c.id) || 0;
+    const row = el('div', 'ch' + ((chatView && chatView.type === 'ch' && chatView.id === c.id) ? ' active' : '') + (full ? ' full' : '') + (u ? ' unread' : ''));
+    const ico = el('span', 'ico'); ico.innerHTML = c.max_users ? ICON.lock : ICON.speaker; row.appendChild(ico);
+    row.appendChild(el('span', 'nm', c.name));
+    if (u) row.appendChild(el('span', 'badge', String(u)));
+    if (c.max_users) row.appendChild(el('span', 'tag', n + '/' + c.max_users));
+    row.title = full ? 'Canal cheio' : 'Entrar em ' + c.name;
+    row.onclick = () => { if (full) return toast('Esse canal já está cheio.'); joinVoice(c.id); openChat({ type: 'ch', id: c.id }); };
     nav.appendChild(row);
     const who = el('div', 'who');
-    [...members.values()].filter(m => m.room === r.id).forEach(m => who.appendChild(memberLine(m, 26)));
-    if (music[r.id]) {
-      const line = el('div');
-      line.appendChild(avatarEl('bot', BOT, 26, ''));
-      line.appendChild(el('span', 'n', BOT));
-      line.appendChild(el('span', 'st', music[r.id].title));
-      who.appendChild(line);
-    }
+    [...members.values()].filter(m => m.room === c.id).forEach(m => who.appendChild(memberLine(m)));
+    const mu = musicRows.get(c.id);
+    if (mu) { const line = el('div'); line.appendChild(avatarEl('bot', 26)); line.appendChild(el('span', 'n', BOT)); line.appendChild(el('span', 'st', mu.title)); who.appendChild(line); }
     if (who.children.length) nav.appendChild(who);
   });
-  nav.appendChild(el('div', 'sec', 'Música'));
-  const mrow = el('div', 'ch' + (curChat === 'musica' ? ' active' : ''));
-  mrow.appendChild(el('span', 'ico', '♪'));
-  mrow.appendChild(el('span', 'nm', 'pedir-música'));
-  if (unread.musica) mrow.appendChild(el('span', 'badge', String(unread.musica)));
-  mrow.onclick = () => selectChat('musica');
-  nav.appendChild(mrow);
-  $('online').textContent = members.size ? members.size + ' em salas' : '...';
-  $('voiceRoom').textContent = myRoom ? ROOMS.find(r => r.id === myRoom).name : 'Clique num canal para entrar';
-  $('voice').querySelector('b').textContent = myRoom ? 'Voz conectada' : 'Fora das salas';
-}
-
-// clicar num canal: entra na sala de voz e abre o chat dela
-function openChannel(id) {
-  if (id !== myRoom) {
-    const r = ROOMS.find(r => r.id === id);
-    if (r.max && countIn(id) >= r.max) return toast('Essa sala privada já tem 2 pessoas.');
-    joinRoom(id);
-    if (r.max) return;              // privada: o chat abre quando a entrada for aceita
+  const music = channels.filter(c => c.kind === 'music');
+  if (music.length) {
+    nav.appendChild(el('div', 'sec', 'Música'));
+    music.forEach(c => {
+      const u = unread.get('ch:' + c.id) || 0;
+      const row = el('div', 'ch' + ((chatView && chatView.id === c.id) ? ' active' : '') + (u ? ' unread' : ''));
+      row.appendChild(el('span', 'ico', '♪')); row.appendChild(el('span', 'nm', c.name));
+      if (u) row.appendChild(el('span', 'badge', String(u)));
+      row.onclick = () => openChat({ type: 'ch', id: c.id });
+      nav.appendChild(row);
+    });
   }
-  selectChat(id);
 }
-
-
-function renderMe() {
-  const old = $('meAvatar');
-  const a = avatarEl(peer ? peer.id : 'me', myName, 32, myAvatar);
-  a.id = 'meAvatar'; a.title = 'Trocar foto de perfil';
-  a.onclick = () => $('avatarFile').click();
-  old.replaceWith(a);
-  $('meName').textContent = myName;
-}
-
 function renderTop() {
-  const r = ROOMS.find(r => r.id === myRoom);
-  if (!r) { $('roomIco').innerHTML = ICON.speaker; $('roomTitle').textContent = 'Escolha uma sala'; $('roomInfo').textContent = statusText || ''; return; }
-  $('roomIco').innerHTML = r.max ? ICON.lock : ICON.speaker;
-  $('roomTitle').textContent = r.name;
+  if (mode === 'dm') { $('roomIco').innerHTML = ICON.friends; $('roomTitle').textContent = 'Amigos'; $('roomInfo').textContent = 'Adicione amigos para conversar no privado'; return; }
+  const c = chan(myRoom);
+  if (!c) { $('roomIco').innerHTML = ICON.speaker; $('roomTitle').textContent = (srv() || {}).name || ''; $('roomInfo').textContent = 'Clique num canal para entrar na voz'; return; }
+  $('roomIco').innerHTML = c.max_users ? ICON.lock : ICON.speaker;
+  $('roomTitle').textContent = c.name;
   const n = countIn(myRoom);
-  $('roomInfo').textContent = statusText || ((n || 1) + (n === 1 || !n ? ' pessoa' : ' pessoas') + (r.max ? ' (máximo 2)' : '') + ' · clique num quadro para destacar');
+  $('roomInfo').textContent = (n || 1) + (n > 1 ? ' pessoas' : ' pessoa') + (c.max_users ? ' (máximo ' + c.max_users + ')' : '') + ' · clique num quadro para destacar';
 }
+function renderMe() {
+  const a = avatarEl(me, 32); a.id = 'meAvatar'; a.title = 'Editar perfil'; a.onclick = e => { e.stopPropagation(); editProfile(); };
+  $('meAvatar').replaceWith(a);
+  $('meName').textContent = myProfile.display_name || myProfile.username;
+  $('meUser').textContent = '@' + myProfile.username;
+}
+$('meInfo').onclick = () => editProfile();
+$('reportMini').onclick = e => { e.stopPropagation(); reportDialog(''); };
+function renderAll() { renderNav(); renderTop(); renderChatHead(); syncParticipants(); updateButtons(); }
 
-function renderTabs() {
-  const box = $('tabs');
-  box.innerHTML = '';
+/* ===================== Chat ===================== */
+const curMusicChannel = () => !!(chatView && chatView.type === 'ch' && (chan(chatView.id) || {}).kind === 'music');
+function renderChatHead() {
+  const box = $('tabs'); box.innerHTML = '';
   const t = el('div', 'ct');
-  t.appendChild(el('i', null, curChat === 'musica' ? '♪' : '#'));
-  t.appendChild(el('span', null, curChat === 'musica' ? 'pedir-música' : 'chat da ' + CHATS.find(c => c.id === curChat).name));
+  if (!chatView) t.appendChild(el('span', null, 'Chat'));
+  else if (chatView.type === 'ch') { const c = chan(chatView.id) || {}; t.appendChild(el('i', null, c.kind === 'music' ? '♪' : '#')); t.appendChild(el('span', null, c.kind === 'music' ? (c.name || '') : 'chat de ' + (c.name || ''))); }
+  else { t.appendChild(avatarEl(chatView.id, 24)); t.appendChild(el('span', null, dn(chatView.id))); }
   box.appendChild(t);
-  const x = el('button', null, '✕'); x.id = 'chatClose'; x.type = 'button';
-  x.onclick = () => $('chat').classList.remove('open');
-  box.appendChild(x);
+  const x = el('button', null, '✕'); x.id = 'chatClose'; x.type = 'button'; x.onclick = () => $('chat').classList.remove('open'); box.appendChild(x);
 }
-
-function fmtTime(ts) { const d = new Date(ts); return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
-
+async function fetchMessages(v) {
+  const key = v.type + ':' + v.id;
+  if (msgCache.has(key)) return msgCache.get(key);
+  let rows = [];
+  if (v.type === 'ch') {
+    const { data } = await sb.from('messages').select('*').eq('channel_id', v.id).order('created_at', { ascending: false }).limit(60);
+    rows = (data || []).reverse().map(r => ({ id: r.id, uid: r.user_id, content: r.content, image_url: r.image_url, is_bot: r.is_bot, created_at: r.created_at }));
+  } else {
+    const { data } = await sb.from('dm_messages').select('*').or(`and(sender.eq.${me},receiver.eq.${v.id}),and(sender.eq.${v.id},receiver.eq.${me})`).order('created_at', { ascending: false }).limit(60);
+    rows = (data || []).reverse().map(r => ({ id: r.id, uid: r.sender, content: r.content, image_url: r.image_url, created_at: r.created_at, dm: true }));
+  }
+  await ensureProfiles(rows.map(r => r.uid));
+  if (!msgCache.has(key)) msgCache.set(key, rows);
+  return msgCache.get(key);
+}
+async function openChat(v) {
+  chatView = v;
+  unread.delete(v.type + ':' + v.id);
+  $('chat').classList.add('open'); $('side').classList.remove('open');
+  await renderChat();
+  renderNav(); renderChatHead();
+}
+async function renderChat() {
+  const box = $('msgs'); box.innerHTML = ''; box.dataset.last = '';
+  renderChatHead();
+  if (!chatView) { box.appendChild(el('div', 'sys', mode === 'dm' ? 'Escolha um amigo na lateral para conversar.' : 'Escolha um canal.')); return; }
+  const v = chatView;
+  $('chatInput').placeholder = v.type === 'dm' ? 'Conversar com ' + dn(v.id) : curMusicChannel() ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar em ' + ((chan(v.id) || {}).name || '');
+  const rows = await fetchMessages(v);
+  if (chatView !== v) return;
+  box.innerHTML = ''; box.dataset.last = '';
+  if (!rows.length) box.appendChild(el('div', 'sys', curMusicChannel() ? 'Entre num canal de voz e cole aqui um link do YouTube ou Spotify. A música toca para quem está no seu canal.' : 'Nenhuma mensagem ainda. Diga oi!'));
+  rows.forEach(appendMsg);
+  box.scrollTop = box.scrollHeight;
+}
 function appendMsg(m) {
   const box = $('msgs');
   const sys = box.querySelector('.sys'); if (sys) sys.remove();
-  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
-  const who = m.uid || m.name;
-  const cont = box.dataset.last === who && m.ts - Number(box.dataset.lastTs || 0) < 5 * 60000;
-  box.dataset.last = who; box.dataset.lastTs = m.ts;
-  const d = el('div', 'msg' + (m.bot ? ' bot' : '') + (cont ? ' cont' : ''));
-  const isMe = peer && m.uid === peer.id;
-  d.appendChild(avatarEl(m.uid || '', m.name, 0, isMe ? myAvatar : undefined));
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  const who = m.is_bot ? 'bot' : m.uid;
+  const ts = Date.parse(m.created_at);
+  const cont = box.dataset.last === String(who) && ts - Number(box.dataset.lastTs || 0) < 5 * 60000;
+  box.dataset.last = who; box.dataset.lastTs = ts;
+  const d = el('div', 'msg' + (m.is_bot ? ' bot' : '') + (cont ? ' cont' : ''));
+  d.dataset.mid = m.id;
+  d.appendChild(avatarEl(m.is_bot ? 'bot' : m.uid, 0));
   const c = el('div', 'c');
-  const h = el('div', 'h'); h.appendChild(el('b', null, m.name));
-  if (m.bot) h.appendChild(el('span', 'botag', 'BOT'));
-  h.append(fmtTime(m.ts));
+  const h = el('div', 'h');
+  const nb = el('b', null, m.is_bot ? BOT : dn(m.uid));
+  if (!m.is_bot && m.uid) nb.onclick = e => { e.stopPropagation(); showCard(m.uid, e); };
+  h.appendChild(nb);
+  if (m.is_bot) h.appendChild(el('span', 'botag', 'BOT'));
+  h.append(fmtTime(ts));
   c.appendChild(h);
-  if (m.text) c.appendChild(el('div', 'b', m.text));
-  if (m.img) {
-    const im = el('img', 'mimg'); im.src = m.img; im.alt = 'Imagem enviada por ' + m.name;
-    im.onload = () => { if (atBottom || isMe) box.scrollTop = box.scrollHeight; };
-    im.onclick = () => { $('lightbox').querySelector('img').src = m.img; $('lightbox').classList.add('open'); };
+  if (m.content) c.appendChild(el('div', 'b', m.content));
+  if (m.image_url) {
+    const im = el('img', 'mimg'); im.src = m.image_url; im.alt = 'Imagem enviada';
+    im.onload = () => { if (atBottom) box.scrollTop = box.scrollHeight; };
+    im.onclick = () => { $('lightbox').querySelector('img').src = m.image_url; $('lightbox').classList.add('open'); };
     c.appendChild(im);
-  } else if (m.expired) c.appendChild(el('div', 'expired', 'Imagem antiga removida'));
+  }
   d.appendChild(c);
+  const s = srv();
+  if (!m.dm && (m.uid === me || isAdmin || (s && s.owner_id === me))) {
+    const del = el('button', 'del', 'Apagar');
+    del.onclick = async () => { const { error } = await sb.from('messages').delete().eq('id', m.id); if (error) toast('Não consegui apagar.'); };
+    d.appendChild(del);
+  }
   box.appendChild(d);
-  if (atBottom || isMe) box.scrollTop = box.scrollHeight;
+  if (atBottom || m.uid === me) box.scrollTop = box.scrollHeight;
 }
-
-function renderChat() {
-  const box = $('msgs');
-  box.innerHTML = '';
-  box.dataset.last = '';
-  const nm = CHATS.find(c => c.id === curChat).name;
-  $('chatInput').placeholder = curChat === 'musica' ? 'Cole um link do YouTube ou Spotify (ou !pular)' : 'Conversar na ' + nm;
-  const arr = chats[curChat];
-  if (!arr.length) box.appendChild(el('div', 'sys', curChat === 'musica' ? 'Cole aqui um link do YouTube ou Spotify para tocar na sua sala.' : 'Nenhuma mensagem ainda na ' + nm + '.'));
-  renderTabs();
-  arr.forEach(appendMsg);
-  box.scrollTop = box.scrollHeight;
+async function sendMessage(text, image_url) {
+  if (!chatView) return;
+  if (chatView.type === 'ch') {
+    const { error } = await sb.from('messages').insert({ channel_id: chatView.id, user_id: me, content: text || '', image_url: image_url || '' });
+    if (error) return toast('Não consegui enviar.');
+    if (curMusicChannel() && text) musicRequest(text);
+  } else {
+    const { error } = await sb.from('dm_messages').insert({ sender: me, receiver: chatView.id, content: text || '', image_url: image_url || '' });
+    if (error) return toast('Vocês precisam ser amigos para conversar no privado.');
+  }
 }
-
-const chatVisible = () => getComputedStyle($('chat')).position !== 'fixed' || $('chat').classList.contains('open');
-
-function selectChat(id) {
-  curChat = id; unread[id] = 0;
-  $('side').classList.remove('open');
-  $('chat').classList.add('open');
-  renderChat(); renderNav();
-  $('chatInput').focus();
-}
-
 $('chatForm').onsubmit = e => {
   e.preventDefault();
   const text = $('chatInput').value.trim();
   if (!text) return;
-  if (!hubConn || !hubConn.open) return toast('Ainda conectando, tente em instantes.');
-  if (isPriv(curChat) && myRoom !== curChat) return toast('Entre na sala privada para conversar nela.');
-  send({ t: 'msg', ch: curChat, text });
   $('chatInput').value = '';
-  if (curChat === 'musica') musicRequest(text);
+  sendMessage(text, '');
 };
-
-function renderAll() { renderNav(); renderTop(); renderTabs(); syncParticipants(); }
-
-// reduz a imagem (até 1280px) antes de enviar
-function shrinkImage(file, maxDim, q) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onerror = rej;
-    r.onload = () => {
-      const img = new Image();
-      img.onerror = rej;
-      img.onload = () => {
-        const k = Math.min(1, maxDim / Math.max(img.width, img.height));
-        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
-        res(c.toDataURL('image/jpeg', q));
-      };
-      img.src = r.result;
-    };
-    r.readAsDataURL(file);
-  });
-}
 async function sendImage(file) {
-  if (!file || !file.type.startsWith('image/')) return;
-  if (!hubConn || !hubConn.open) return toast('Ainda conectando, tente em instantes.');
-  if (isPriv(curChat) && myRoom !== curChat) return toast('Entre na sala privada para conversar nela.');
-  let data;
-  try {
-    data = await shrinkImage(file, 1280, 0.8);
-    if (data.length > 650000) data = await shrinkImage(file, 900, 0.65);
-  } catch (e) { return toast('Não consegui abrir essa imagem.'); }
-  if (data.length > 690000) return toast('Imagem muito grande.');
-  const text = $('chatInput').value.trim();
-  send({ t: 'msg', ch: curChat, text, img: data });
-  $('chatInput').value = '';
+  if (!file || !file.type.startsWith('image/') || !chatView) return;
+  toast('Enviando imagem...');
+  try { const url = await uploadChatImage(file); const t = $('chatInput').value.trim(); $('chatInput').value = ''; await sendMessage(t, url); toast('Imagem enviada.'); }
+  catch (e) { toast('Não consegui enviar a imagem.'); }
 }
 $('attach').onclick = () => $('imgFile').click();
 $('imgFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; sendImage(f); };
-$('chatInput').addEventListener('paste', e => {
-  const it = [...(e.clipboardData || {}).items || []].find(i => i.type.startsWith('image/'));
-  if (it) { e.preventDefault(); sendImage(it.getAsFile()); }
-});
+$('chatInput').addEventListener('paste', e => { const it = [...((e.clipboardData || {}).items || [])].find(i => i.type.startsWith('image/')); if (it) { e.preventDefault(); sendImage(it.getAsFile()); } });
 $('lightbox').onclick = () => $('lightbox').classList.remove('open');
 
-/* ================= Outros botões ================= */
-$('sideBtn').onclick = () => $('side').classList.toggle('open');
-$('chatBtn').onclick = () => { $('chat').classList.toggle('open'); unread[curChat] = 0; renderNav(); };
-$('copyBtn').onclick = async e => {
-  const url = location.origin + location.pathname;
-  try { await navigator.clipboard.writeText(url); e.target.textContent = 'Link copiado!'; }
-  catch { prompt('Copie o link:', url); }
-  setTimeout(() => e.target.textContent = 'Copiar link', 1800);
-};
-$('avatarFile').onchange = async e => {
-  const f = e.target.files[0]; e.target.value = '';
-  if (!f) return;
-  try { myAvatar = await resizeImage(f); } catch (x) { return toast('Não consegui abrir essa imagem.'); }
-  try { localStorage.setItem('tela_avatar', myAvatar); } catch (x) {}
-  send({ t: 'avatar', data: myAvatar });
-  renderMe(); renderAll(); renderChat();
-  toast('Foto de perfil atualizada.');
-};
-$('meInfo').onclick = () => {
-  const n = clean(prompt('Seu nome:', myName));
-  if (!n || n === myName) return;
-  if ((local.screen || local.cam || local.mic) && !confirm('Para trocar o nome a página recarrega e sua câmera, microfone e tela desligam. Continuar?')) return;
-  try { localStorage.setItem('tela_nome', n); } catch (e) {}
-  location.reload();
-};
-window.addEventListener('beforeunload', () => { try { if (peer) peer.destroy(); if (hubPeer) hubPeer.destroy(); } catch (e) {} });
+/* ===================== Amigos e privado ===================== */
+async function loadFriends() {
+  const { data } = await sb.from('friendships').select('*');
+  friends = data || [];
+  const { data: dms } = await sb.from('dm_messages').select('sender,receiver').order('created_at', { ascending: false }).limit(300);
+  dmPartners = new Set((dms || []).map(r => r.sender === me ? r.receiver : r.sender));
+  await ensureProfiles([...friends.map(friendOf), ...dmPartners]);
+  if (mode === 'dm') { renderNav(); renderFriends(); }
+  renderServerMenu();
+}
+function friendOf(f) { return f.requester === me ? f.addressee : f.requester; }
+const isFriend = uid => friends.some(f => f.status === 'accepted' && friendOf(f) === uid);
+function openDM(uid) {
+  mode = 'dm';
+  if (!uid) chatView = null;
+  showMode(); renderAll();
+  if (uid) openChat({ type: 'dm', id: uid }); else renderChat();
+}
+function renderDmNav(nav) {
+  $('srvName').textContent = 'Mensagens privadas';
+  const nPend = friends.filter(f => f.status === 'pending' && f.addressee === me).length;
+  const fr = el('div', 'dmrow' + (!chatView ? ' active' : '')); fr.appendChild(iconEl('friends')); fr.appendChild(el('span', 'n', 'Amigos'));
+  if (nPend) fr.appendChild(el('span', 'badge', String(nPend)));
+  fr.onclick = () => { friendsTab = nPend ? 'pending' : 'all'; renderFriends(); };
+  nav.appendChild(fr);
+  const back = el('div', 'dmrow'); back.appendChild(iconEl('speaker')); back.appendChild(el('span', 'n', 'Voltar para ' + ((srv() || {}).name || 'xcordbr')));
+  back.onclick = () => openServer(curServer);
+  nav.appendChild(back);
+  nav.appendChild(el('div', 'sec', 'Conversas'));
+  const ids = new Set([...friends.filter(f => f.status === 'accepted').map(friendOf), ...dmPartners]);
+  [...ids].sort((a, b) => dn(a).localeCompare(dn(b))).forEach(uid => {
+    const u = unread.get('dm:' + uid) || 0;
+    const row = el('div', 'dmrow' + (chatView && chatView.type === 'dm' && chatView.id === uid ? ' active' : ''));
+    row.appendChild(avatarEl(uid, 32)); row.appendChild(el('span', 'n', dn(uid)));
+    if (u) row.appendChild(el('span', 'badge', String(u)));
+    row.onclick = () => openChat({ type: 'dm', id: uid });
+    nav.appendChild(row);
+  });
+  if (!ids.size) { const h = el('div', 'hint', 'Nenhuma conversa ainda. Adicione um amigo pelo nome de usuário.'); h.style.padding = '8px'; nav.appendChild(h); }
+}
+function renderFriends() {
+  const tabs = $('ftabs'); tabs.innerHTML = '';
+  const nPend = friends.filter(f => f.status === 'pending').length;
+  [['all', 'Todos'], ['pending', 'Pendentes' + (nPend ? ' (' + nPend + ')' : '')], ['add', 'Adicionar amigo']].forEach(([k, t]) => {
+    const b = el('button', (k === 'add' ? 'add ' : '') + (friendsTab === k ? 'on' : ''), t); b.onclick = () => { friendsTab = k; renderFriends(); }; tabs.appendChild(b);
+  });
+  const body = $('fbody'); body.innerHTML = '';
+  if (friendsTab === 'add') {
+    body.appendChild(el('h3', null, 'Adicionar amigo'));
+    body.appendChild(el('div', 'hint', 'Digite o nome de usuário da pessoa (o que aparece com @).'));
+    const row = el('div', 'copyrow'); row.style.marginTop = '12px';
+    const inp = el('input'); inp.placeholder = 'nome.de.usuario';
+    const b = el('button', 'primary', 'Enviar pedido');
+    const go = async () => {
+      const u = inp.value.trim().replace(/^@/, ''); if (!u) return;
+      const { data, error } = await sb.rpc('add_friend', { p_username: u });
+      if (error) return toast('Não consegui enviar.');
+      toast({ enviado: 'Pedido enviado!', aceito: 'Agora vocês são amigos!', ja_amigos: 'Vocês já são amigos.', ja_pedido: 'Você já mandou um pedido.', nao_existe: 'Não existe ninguém com esse usuário.', voce: 'Esse é você!' }[data] || data);
+      inp.value = ''; loadFriends();
+    };
+    b.onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+    row.append(inp, b); body.appendChild(row);
+    return;
+  }
+  const list = friendsTab === 'pending' ? friends.filter(f => f.status === 'pending') : friends.filter(f => f.status === 'accepted');
+  if (!list.length) { body.appendChild(el('div', 'hint', friendsTab === 'pending' ? 'Nenhum pedido pendente.' : 'Você ainda não tem amigos adicionados. Clique em "Adicionar amigo".')); return; }
+  list.forEach(f => {
+    const uid = friendOf(f), p = profiles.get(uid) || {};
+    const row = el('div', 'frow');
+    row.appendChild(avatarEl(uid, 36));
+    const n = el('div', 'n'); n.appendChild(el('b', null, dn(uid))); n.appendChild(el('small', null, '@' + (p.username || '') + (f.status === 'pending' ? (f.requester === me ? ' · pedido enviado' : ' · quer ser seu amigo') : ''))); row.appendChild(n);
+    if (f.status === 'accepted') {
+      const m = el('button', 'primary', 'Mensagem'); m.onclick = () => openChat({ type: 'dm', id: uid }); row.appendChild(m);
+      const r = el('button', null, 'Remover'); r.onclick = async () => { if (!confirm('Remover ' + dn(uid) + ' dos amigos?')) return; await sb.from('friendships').delete().eq('id', f.id); loadFriends(); }; row.appendChild(r);
+    } else if (f.addressee === me) {
+      const a = el('button', 'primary', 'Aceitar'); a.onclick = async () => { await sb.from('friendships').update({ status: 'accepted' }).eq('id', f.id); loadFriends(); }; row.appendChild(a);
+      const r = el('button', null, 'Recusar'); r.onclick = async () => { await sb.from('friendships').delete().eq('id', f.id); loadFriends(); }; row.appendChild(r);
+    } else {
+      const r = el('button', null, 'Cancelar'); r.onclick = async () => { await sb.from('friendships').delete().eq('id', f.id); loadFriends(); }; row.appendChild(r);
+    }
+    body.appendChild(row);
+  });
+}
+
+/* ===================== Perfil ===================== */
+function profileCard(uid) {
+  const p = profiles.get(uid) || {};
+  const card = el('div', 'pcard');
+  const ban = el('div', 'ban'); ban.style.background = p.banner_color || '#5b67f1'; card.appendChild(ban);
+  const pav = el('div', 'pav'); const a = avatarEl(uid, 80); a.onclick = null; a.style.cursor = 'default'; pav.appendChild(a); card.appendChild(pav);
+  const pb = el('div', 'pb');
+  pb.appendChild(el('b', null, p.display_name || p.username || 'Usuário'));
+  pb.appendChild(el('div', 'u', '@' + (p.username || '')));
+  if (p.bio) pb.appendChild(el('div', 'bio', p.bio));
+  card.appendChild(pb);
+  return { card, pb };
+}
+function closePop() { $('pop').classList.remove('open'); }
+async function showCard(uid, ev) {
+  if (!uid || uid === 'bot') return;
+  await ensureProfiles([uid]);
+  const { card, pb } = profileCard(uid);
+  const acts = el('div', 'acts');
+  if (uid === me) { const e = el('button', 'primary', 'Editar perfil'); e.onclick = () => { closePop(); editProfile(); }; acts.appendChild(e); }
+  else {
+    const uname = (profiles.get(uid) || {}).username;
+    if (isFriend(uid)) { const m = el('button', 'primary', 'Mensagem'); m.onclick = () => { closePop(); openDM(uid); }; acts.appendChild(m); }
+    else if (!friends.some(f => friendOf(f) === uid)) {
+      const a = el('button', 'primary', 'Adicionar amigo');
+      a.onclick = async () => { const { data } = await sb.rpc('add_friend', { p_username: uname }); toast(data === 'aceito' ? 'Agora vocês são amigos!' : 'Pedido de amizade enviado.'); loadFriends(); closePop(); };
+      acts.appendChild(a);
+    } else acts.appendChild(el('button', null, 'Pedido pendente'));
+    const r = el('button', 'danger', 'Denunciar'); r.onclick = () => { closePop(); reportDialog(uname); }; acts.appendChild(r);
+  }
+  pb.appendChild(acts);
+  const pop = $('pop'); pop.innerHTML = ''; pop.appendChild(card);
+  pop.onclick = e => e.stopPropagation();
+  pop.classList.add('open');
+  const x = Math.min((ev && ev.clientX) || innerWidth / 2, innerWidth - 316), y = Math.min((ev && ev.clientY) || innerHeight / 3, innerHeight - pop.offsetHeight - 16);
+  pop.style.left = Math.max(8, x) + 'px'; pop.style.top = Math.max(8, y) + 'px';
+}
+function editProfile() {
+  const p = myProfile;
+  let avatar = p.avatar;
+  const preview = el('div');
+  const name = el('input'); name.value = p.display_name; name.maxLength = 32;
+  const bio = el('textarea'); bio.value = p.bio; bio.maxLength = 190; bio.placeholder = 'Fale um pouco sobre você';
+  const color = el('input'); color.type = 'color'; color.value = p.banner_color || '#5b67f1'; color.style.cssText = 'height:44px;padding:4px;cursor:pointer';
+  const draw = () => { profiles.set(me, Object.assign({}, p, { display_name: name.value, bio: bio.value, banner_color: color.value, avatar })); preview.innerHTML = ''; preview.appendChild(profileCard(me).card); profiles.set(me, p); };
+  [name, bio, color].forEach(i => i.oninput = draw);
+  const pick = el('button', null, 'Trocar foto'); pick.onclick = () => $('avatarFile').click();
+  const rm = el('button', null, 'Remover foto'); rm.onclick = () => { avatar = ''; draw(); };
+  $('avatarFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { avatar = await squareDataUrl(f, 160); draw(); } catch (x) { toast('Não consegui abrir essa imagem.'); } };
+  const photoRow = el('div', 'copyrow'); photoRow.append(pick, rm);
+  const out = el('button', 'danger', 'Sair da conta'); out.onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  draw();
+  openModal('Meu perfil', [preview, el('div', 'hint', 'Usuário: @' + p.username + ' (não dá para trocar)'), el('div', 'lbl', 'Foto'), photoRow, el('div', 'lbl', 'Nome de exibição'), name, el('div', 'lbl', 'Sobre mim'), bio, el('div', 'lbl', 'Cor do banner'), color, out], [
+    ['Cancelar', closeModal],
+    ['Salvar', async () => {
+      const upd = { display_name: name.value.trim(), bio: bio.value.trim(), banner_color: color.value, avatar };
+      const { error } = await sb.from('profiles').update(upd).eq('id', me);
+      if (error) return toast('Não consegui salvar: ' + error.message);
+      Object.assign(myProfile, upd); profiles.set(me, myProfile);
+      closeModal(); renderMe(); renderAll(); renderChat(); toast('Perfil salvo.');
+    }, 'primary'],
+  ]);
+}
+
+/* ===================== Modal ===================== */
+function openModal(title, bodyEls, buttons, wide) {
+  const box = $('mbox'); box.innerHTML = ''; box.className = 'box' + (wide ? ' wide' : '');
+  const h = el('div', 'mh'); h.appendChild(el('h3', null, title)); box.appendChild(h);
+  const b = el('div', 'mb'); bodyEls.forEach(x => b.appendChild(x)); box.appendChild(b);
+  const f = el('div', 'mf');
+  (buttons || []).forEach(([t, fn, cls]) => { const bt = el('button', cls || 'ghost', t); bt.onclick = fn; f.appendChild(bt); });
+  box.appendChild(f);
+  $('modal').classList.add('open');
+}
+function closeModal() { $('modal').classList.remove('open'); }
+$('modal').onclick = e => { if (e.target === $('modal')) closeModal(); };
+$('mbox').onclick = e => e.stopPropagation();
+
+/* ===================== Denúncias e administração ===================== */
+function reportDialog(username) {
+  const who = el('input'); who.placeholder = '@usuario'; who.value = username ? '@' + username : '';
+  const why = el('textarea'); why.placeholder = 'Conte o que aconteceu'; why.maxLength = 1000;
+  const file = el('input'); file.type = 'file'; file.accept = 'image/*,video/mp4,video/webm,video/quicktime';
+  openModal('Denunciar uma conta', [
+    el('div', 'hint', 'A denúncia vai direto para o administrador. Quem foi denunciado não fica sabendo quem denunciou.'),
+    el('div', 'lbl', 'Quem você está denunciando'), who,
+    el('div', 'lbl', 'Motivo'), why,
+    el('div', 'lbl', 'Prova (imagem ou vídeo, até 25 MB)'), file,
+  ], [
+    ['Cancelar', closeModal],
+    ['Enviar denúncia', async e => {
+      const t = who.value.trim(), r = why.value.trim();
+      if (!t) return toast('Diga o @ de quem você está denunciando.');
+      if (r.length < 3) return toast('Explique o motivo.');
+      const btn = e.target; btn.disabled = true;
+      let path = '', type = '';
+      const f = file.files[0];
+      if (f) {
+        if (f.size > 25 * 1024 * 1024) { btn.disabled = false; return toast('Arquivo maior que 25 MB.'); }
+        path = me + '/' + rnd() + '.' + ((f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, ''));
+        type = f.type;
+        toast('Enviando arquivo...');
+        const { error } = await sb.storage.from('report-media').upload(path, f, { contentType: f.type });
+        if (error) { btn.disabled = false; return toast('Não consegui enviar o arquivo.'); }
+      }
+      const { data, error } = await sb.rpc('submit_report', { p_target: t, p_reason: r, p_media_path: path, p_media_type: type });
+      btn.disabled = false;
+      if (error) return toast('Não consegui enviar a denúncia.');
+      if (data === 'nao_existe') return toast('Não existe ninguém com esse usuário.');
+      if (data === 'voce') return toast('Você não pode denunciar a si mesmo.');
+      closeModal(); toast('Denúncia enviada. Obrigado!');
+    }, 'danger'],
+  ]);
+}
+async function adminPanel() {
+  if (!isAdmin) return;
+  let tab = 'reports';
+  const tabs = el('div', 'ftabs'); tabs.style.padding = '0'; tabs.style.border = '0';
+  const body = el('div'); body.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+  const draw = async () => {
+    tabs.innerHTML = '';
+    [['reports', 'Denúncias'], ['users', 'Usuários']].forEach(([k, t]) => { const b = el('button', tab === k ? 'on' : '', t); b.onclick = () => { tab = k; draw(); }; tabs.appendChild(b); });
+    body.innerHTML = '';
+    if (tab === 'users') {
+      const search = el('input'); search.placeholder = 'Buscar por usuário ou nome';
+      const list = el('div');
+      const load = async () => {
+        const { data, error } = await sb.rpc('admin_users', { p_search: search.value.trim() });
+        list.innerHTML = '';
+        if (error) return list.appendChild(el('div', 'err', error.message));
+        list.appendChild(el('div', 'hint', data.length + ' contas'));
+        data.forEach(u => {
+          profiles.set(u.id, Object.assign(profiles.get(u.id) || {}, { id: u.id, username: u.username, display_name: u.display_name, avatar: u.avatar }));
+          const row = el('div', 'admrow');
+          row.appendChild(avatarEl(u.id, 36));
+          const n = el('div', 'n'); n.appendChild(el('b', null, u.display_name || u.username));
+          n.appendChild(el('small', null, '@' + u.username + ' · criada em ' + new Date(u.created_at).toLocaleDateString('pt-BR') + (Number(u.reports) ? ' · ' + u.reports + ' denúncia(s)' : '')));
+          row.appendChild(n);
+          if (u.is_admin) row.appendChild(el('span', 'pill ok', 'ADMIN'));
+          else if (u.banned) {
+            row.appendChild(el('span', 'pill', 'BANIDO'));
+            const b = el('button', null, 'Desbanir'); b.onclick = async () => { await sb.rpc('admin_ban', { p_user: u.id, p_ban: false, p_ip: false }); toast('Desbanido.'); load(); }; row.appendChild(b);
+          } else {
+            const b1 = el('button', 'danger', 'Banir'); b1.onclick = () => ban(u, false, load); row.appendChild(b1);
+            const b2 = el('button', 'danger', 'Banir + IP'); b2.onclick = () => ban(u, true, load); row.appendChild(b2);
+          }
+          list.appendChild(row);
+        });
+      };
+      let tm; search.oninput = () => { clearTimeout(tm); tm = setTimeout(load, 300); };
+      body.append(search, list); load();
+    } else {
+      const { data, error } = await sb.from('reports').select('*').order('created_at', { ascending: false }).limit(100);
+      if (error) return body.appendChild(el('div', 'err', error.message));
+      if (!data.length) return body.appendChild(el('div', 'hint', 'Nenhuma denúncia.'));
+      await ensureProfiles(data.flatMap(r => [r.reporter, r.target]));
+      for (const r of data) {
+        const box = el('div', 'rep' + (r.status === 'resolvida' ? ' done' : ''));
+        const tp = profiles.get(r.target) || {}, rp = profiles.get(r.reporter) || {};
+        const head = el('div'); head.appendChild(el('b', null, '#' + r.id + ' contra @' + (tp.username || '?'))); head.append('  por @' + (rp.username || '?') + ' · ' + fmtTime(Date.parse(r.created_at)) + (r.status === 'resolvida' ? ' · resolvida' : ''));
+        box.appendChild(head);
+        box.appendChild(el('div', 'b', r.reason));
+        if (r.media_path) {
+          const { data: su } = await sb.storage.from('report-media').createSignedUrl(r.media_path, 3600);
+          if (su && su.signedUrl) {
+            if ((r.media_type || '').startsWith('video')) { const v = el('video'); v.controls = true; v.src = su.signedUrl; box.appendChild(v); }
+            else { const i = el('img'); i.src = su.signedUrl; i.style.cursor = 'zoom-in'; i.onclick = () => { $('lightbox').querySelector('img').src = su.signedUrl; $('lightbox').classList.add('open'); }; box.appendChild(i); }
+          }
+        }
+        const acts = el('div', 'acts');
+        const u = { id: r.target, username: tp.username };
+        const card = el('button', null, 'Ver perfil'); card.onclick = e => { e.stopPropagation(); showCard(r.target, e); };
+        const b1 = el('button', 'danger', 'Banir @' + (tp.username || '')); b1.onclick = () => ban(u, false, draw);
+        const b2 = el('button', 'danger', 'Banir + IP'); b2.onclick = () => ban(u, true, draw);
+        acts.append(card, b1, b2);
+        if (r.status !== 'resolvida') { const ok = el('button', null, 'Marcar como resolvida'); ok.onclick = async () => { await sb.rpc('admin_resolve', { p_report: r.id }); draw(); }; acts.appendChild(ok); }
+        box.appendChild(acts);
+        body.appendChild(box);
+      }
+    }
+  };
+  openModal('Painel de administração', [tabs, body], [['Fechar', closeModal]], true);
+  draw();
+}
+async function ban(u, withIp, after) {
+  if (!confirm('Banir @' + u.username + (withIp ? ' e os IPs que essa conta usou' : '') + '? A pessoa perde o acesso na hora.')) return;
+  const { data, error } = await sb.rpc('admin_ban', { p_user: u.id, p_ban: true, p_ip: withIp });
+  if (error) return toast('Não consegui banir: ' + error.message);
+  toast('@' + u.username + ' banido' + (withIp ? ' (' + data + ' IP(s) bloqueado(s))' : '') + '.');
+  if (after) after();
+}
+
+/* ===================== Música ===================== */
+async function loadMusic() {
+  musicRows.clear();
+  const { data } = await sb.from('channel_music').select('*').eq('server_id', curServer);
+  (data || []).forEach(r => musicRows.set(r.channel_id, r));
+}
+const curMusic = () => myRoom ? musicRows.get(myRoom) : null;
+const mkey = c => c ? c.kind + ':' + c.media_id + ':' + c.started_at : '';
+function parseLink(t) {
+  let m = t.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/);
+  if (m) return { kind: 'yt', id: m[1], url: 'https://www.youtube.com/watch?v=' + m[1] };
+  m = t.match(/open\.spotify\.com\/(?:intl-[\w-]+\/)?track\/([A-Za-z0-9]{10,30})/) || t.match(/spotify:track:([A-Za-z0-9]{10,30})/);
+  if (m) return { kind: 'sp', id: m[1], url: 'https://open.spotify.com/track/' + m[1] };
+  if (/open\.spotify\.com\/(playlist|album)/.test(t)) return { err: 'Mande o link de uma música só, não de playlist ou álbum.' };
+  return null;
+}
+async function getTitle(url) { try { const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent(url)); const j = await r.json(); return j.title || ''; } catch (e) { return ''; } }
+async function botSay(text) {
+  const mc = channels.find(c => c.kind === 'music'); if (!mc) return;
+  await sb.from('messages').insert({ channel_id: mc.id, user_id: me, content: text, is_bot: true });
+}
+async function musicRequest(text) {
+  const t = text.trim();
+  const room = chan(myRoom);
+  if (/^!(pular|parar|skip|stop)\b/i.test(t)) {
+    if (!room) return toast('Você não está em um canal de voz.');
+    if (!curMusic()) return botSay('Não tem música tocando em ' + room.name + '.');
+    await sb.from('channel_music').delete().eq('channel_id', myRoom);
+    return botSay(dn(me) + ' parou a música em ' + room.name + '.');
+  }
+  let link = parseLink(t), title = '';
+  if (link && link.err) return toast(link.err);
+  if (!link) {
+    const q = t.match(/^!tocar\s+(.+)/i); if (!q) return;
+    if (!YT_API_KEY) return toast('Para pedir pelo nome precisa da chave do YouTube. Por enquanto mande o link da música.');
+    try {
+      const r = await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=' + encodeURIComponent(q[1]) + '&key=' + YT_API_KEY);
+      const it = (await r.json()).items[0];
+      link = { kind: 'yt', id: it.id.videoId }; title = it.snippet.title.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+    } catch (e) { return toast('Não encontrei essa música.'); }
+  }
+  if (!room) return botSay('Entre num canal de voz primeiro, ' + dn(me) + '. A música toca no canal em que você está.');
+  if (!title && link.url) title = await getTitle(link.url);
+  title = cleanTitle(title) || 'Música';
+  const { error } = await sb.from('channel_music').insert({ channel_id: myRoom, server_id: curServer, kind: link.kind, media_id: link.id, title, requested_by: me });
+  if (error) {
+    const cur = curMusic();
+    if (error.code === '23505') return botSay('Já tem música tocando em ' + room.name + (cur ? ': "' + cur.title + '"' : '') + '. Só uma por vez: espere acabar ou mande !pular.');
+    return toast('Não consegui tocar: ' + error.message);
+  }
+  botSay('Tocando em ' + room.name + ': "' + title + '" (pedido por ' + dn(me) + ')');
+}
+function cleanupMusic() {
+  if (!presenceReady) return;
+  musicRows.forEach(r => { if (!countIn(r.channel_id)) sb.from('channel_music').delete().eq('channel_id', r.channel_id).eq('started_at', r.started_at).then(() => {}); });
+}
+let ytReady = null, ytPlayer = null, spReady = null, spCtl = null, playingKey = '', endSent = '';
+function loadScript(src) { const s = document.createElement('script'); s.src = src; document.head.appendChild(s); }
+function loadYT() { if (!ytReady) ytReady = new Promise(res => { window.onYouTubeIframeAPIReady = res; loadScript('https://www.youtube.com/iframe_api'); }); return ytReady; }
+function loadSP() { if (!spReady) spReady = new Promise(res => { window.onSpotifyIframeApiReady = res; loadScript('https://open.spotify.com/embed/iframe-api/v1'); }); return spReady; }
+const vol = () => Number($('npVol').value);
+const elapsed = c => Math.max(0, (Date.now() - Date.parse(c.started_at)) / 1000);
+function stopPlayers() {
+  try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch (e) {}
+  try { if (spCtl) spCtl.pause(); } catch (e) {}
+  $('ytBox').style.display = 'none'; $('spBox').style.display = 'none';
+}
+function renderNP(cur) {
+  const show = !!cur && mode === 'server';
+  if (($('np').style.display === 'flex') !== show) { $('np').style.display = show ? 'flex' : 'none'; layout(); }
+  if (!cur) return;
+  $('npTitle').textContent = cur.title;
+  $('npBy').textContent = 'Pedido por ' + dn(cur.requested_by) + (cur.kind === 'sp' ? ' · Spotify (sem login toca só 30s)' : ' · YouTube');
+  $('npVol').style.display = cur.kind === 'yt' ? '' : 'none';
+}
+function reportEnd() {
+  const cur = curMusic(); if (!cur || endSent === mkey(cur)) return;
+  if (cur.kind === 'sp' && cur.requested_by !== me) return;
+  endSent = mkey(cur);
+  sb.from('channel_music').delete().eq('channel_id', cur.channel_id).eq('started_at', cur.started_at).then(() => {});
+}
+async function syncMusic() {
+  const cur = curMusic(), key = mkey(cur);
+  renderNP(cur);
+  if (key === playingKey) return;
+  playingKey = key; stopPlayers();
+  if (!cur) return;
+  if (cur.kind === 'yt') {
+    await loadYT(); if (playingKey !== key) return;
+    $('ytBox').style.display = 'block';
+    if (!ytPlayer) {
+      await new Promise(res => {
+        ytPlayer = new YT.Player('ytPlayer', {
+          width: 128, height: 72, videoId: cur.media_id,
+          playerVars: { autoplay: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, start: Math.floor(elapsed(cur)) },
+          events: {
+            onReady: e => { e.target.setVolume(vol()); e.target.seekTo(elapsed(cur), true); e.target.playVideo(); res(); },
+            onStateChange: e => { if (e.data === 0) reportEnd(); if (e.data === 1) $('sound').style.display = 'none'; },
+          },
+        });
+      });
+    } else { ytPlayer.loadVideoById({ videoId: cur.media_id, startSeconds: elapsed(cur) }); ytPlayer.setVolume(vol()); }
+    setTimeout(() => { if (playingKey === key && ytPlayer.getPlayerState && ytPlayer.getPlayerState() !== 1) $('sound').style.display = 'block'; }, 3000);
+  } else {
+    const api = await loadSP(); if (playingKey !== key) return;
+    $('spBox').style.display = 'block';
+    const uri = 'spotify:track:' + cur.media_id;
+    const start = () => { try { spCtl.play(); const t = elapsed(cur); if (t > 2) setTimeout(() => spCtl.seek(t), 600); } catch (e) {} };
+    if (!spCtl) api.createController($('spPlayer'), { uri, width: '100%', height: 80 }, c => { spCtl = c; c.addListener('ready', start); c.addListener('playback_update', e => { const p = e.data; if (p.duration > 0 && p.position >= p.duration - 1500) reportEnd(); }); });
+    else { spCtl.loadUri(uri); setTimeout(start, 800); }
+  }
+}
+try { const v = localStorage.getItem('tela_vol'); if (v) $('npVol').value = v; } catch (e) {}
+$('npVol').oninput = () => { if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(vol()); try { localStorage.setItem('tela_vol', vol()); } catch (e) {} };
+$('npSkip').onclick = () => musicRequest('!pular');
+
+/* ===================== Tempo real do banco ===================== */
+function subscribeDb() {
+  sb.channel('db')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async ({ new: r }) => {
+      if (!chan(r.channel_id)) return;
+      const m = { id: r.id, uid: r.user_id, content: r.content, image_url: r.image_url, is_bot: r.is_bot, created_at: r.created_at };
+      await ensureProfiles([r.user_id]);
+      const key = 'ch:' + r.channel_id;
+      if (msgCache.has(key)) msgCache.get(key).push(m);
+      if (chatView && chatView.type === 'ch' && chatView.id === r.channel_id) appendMsg(m);
+      else if (r.user_id !== me || r.is_bot) { unread.set(key, (unread.get(key) || 0) + 1); renderNav(); }
+    })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, ({ old: r }) => {
+      msgCache.forEach((list, k) => { if (!k.startsWith('ch:')) return; const i = list.findIndex(x => x.id === r.id); if (i >= 0) list.splice(i, 1); });
+      if (chatView && chatView.type === 'ch') { const d = document.querySelector('.msg[data-mid="' + r.id + '"]'); if (d) d.remove(); }
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_messages' }, async ({ new: r }) => {
+      const other = r.sender === me ? r.receiver : r.sender;
+      await ensureProfiles([other]);
+      dmPartners.add(other);
+      const m = { id: r.id, uid: r.sender, content: r.content, image_url: r.image_url, created_at: r.created_at, dm: true };
+      const key = 'dm:' + other;
+      if (msgCache.has(key)) msgCache.get(key).push(m);
+      if (chatView && chatView.type === 'dm' && chatView.id === other) appendMsg(m);
+      else if (r.sender !== me) { unread.set(key, (unread.get(key) || 0) + 1); toast('Nova mensagem privada de ' + dn(other)); }
+      if (mode === 'dm') renderNav();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_music' }, ({ eventType, new: n, old: o }) => {
+      if (eventType === 'DELETE') { const cur = o && musicRows.get(o.channel_id); if (cur && (!o.started_at || cur.started_at === o.started_at)) musicRows.delete(o.channel_id); }
+      else if (n && n.server_id === curServer) musicRows.set(n.channel_id, n);
+      syncMusic(); renderNav();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, async ({ new: n, old: o }) => {
+      if ((n && n.server_id === curServer) || (o && channels.some(c => c.id === o.id))) { await loadChannels(); if (myRoom && !chan(myRoom)) leaveVoice(); renderAll(); }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members' }, async ({ eventType, new: n, old: o }) => {
+      const r = eventType === 'DELETE' ? o : n;
+      if (r && r.user_id === me) { await loadServers(); if (!servers.some(s => s.id === curServer)) openServer(PUBLIC_ID); }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'servers' }, () => loadServers().then(() => renderAll()))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => loadFriends())
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, ({ new: p }) => {
+      if (!p || !p.id) return;
+      if (p.id === me && p.banned) { location.reload(); return; }
+      profiles.set(p.id, Object.assign(profiles.get(p.id) || {}, p));
+      if (p.id === me) { myProfile = profiles.get(me); renderMe(); }
+      renderAll();
+    })
+    .subscribe();
+}
+
+/* ===================== Outros ===================== */
+$('sideBtn').onclick = e => { e.stopPropagation(); $('side').classList.toggle('open'); };
+$('chatBtn').onclick = () => { $('chat').classList.toggle('open'); if (chatView) unread.delete(chKey()); renderNav(); };
+window.addEventListener('beforeunload', () => { try { if (presence) presence.untrack(); if (peer) peer.destroy(); } catch (e) {} });
 </script>
 </body>
 </html>
