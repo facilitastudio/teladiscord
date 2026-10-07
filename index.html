@@ -694,6 +694,14 @@
   .annlist .it b{display:block}
   .annlist .it small{color:var(--mut)}
   #annBtn{color:var(--coral)}
+  /* esconder as pessoas embaixo da tela em destaque */
+  #grid.focus.nostrip{grid-template-rows:minmax(0,1fr) !important}
+  #grid.focus.nostrip #strip{display:none !important}
+  #stripBtn{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);margin-right:8px}
+  #stripBtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #stripBtn .n{background:var(--acc);color:#fff;border-radius:999px;font-size:11px;padding:0 6px;line-height:17px}
+  html[data-theme="light"] #stripBtn{background:rgba(255,255,255,.6);border-color:rgba(13,34,54,.1)}
+  html[data-theme="light"] .tile .bar button{color:#fff;background:rgba(6,18,31,.6)}
 </style>
 </head>
 <body>
@@ -822,6 +830,7 @@
       </div>
       <div class="r">
         <button class="mob sidebtn" id="sideBtn">Menu</button>
+        <button id="stripBtn" type="button" style="display:none"></button>
         <button id="chatBtn" title="Mostrar ou ocultar o bate-papo"></button>
       </div>
     </div>
@@ -1205,6 +1214,8 @@ let peer = null, peerId = null;
 const local = { screen: null, cam: null, mic: null };
 const outCalls = new Map(), inCalls = new Map(), tiles = new Map(), audios = new Map();
 let focusId = null;
+let stripHidden = false;
+try { stripHidden = localStorage.getItem('xc_strip') === '0'; } catch (e) {}
 const musicRows = new Map();
 const chKey = () => chatView ? chatView.type + ':' + chatView.id : '';
 
@@ -1924,6 +1935,8 @@ function layout() {
   $empty.style.display = list.length ? 'none' : '';
   $grid.classList.toggle('focus', !!focusId);
   $grid.classList.toggle('solo', !!focusId && list.length === 1);
+  $grid.classList.toggle('nostrip', !!focusId && stripHidden);
+  paintStripBtn(list.length);
   if (focusId) {
     list.forEach(t => {
       const isF = t.dataset.id === focusId;
@@ -3576,6 +3589,23 @@ document.addEventListener('visibilitychange', () => {
   if (peer && peer.disconnected) { try { peer.reconnect(); } catch (e) {} }
   setTimeout(syncMedia, 500);
 });
+
+/* ===================== Esconder as pessoas quando uma tela está em destaque ===================== */
+function paintStripBtn(n) {
+  const b = $('stripBtn'); if (!b) return;
+  const show = !!focusId && n > 1;
+  b.style.display = show ? '' : 'none'; if (!show) return;
+  const others = n - 1;
+  b.innerHTML = stripHidden
+    ? '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>Mostrar pessoas <span class="n">' + others + '</span>'
+    : '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>Esconder pessoas';
+  b.title = stripHidden ? 'Mostrar de novo os quadros das pessoas' : 'Esconder os quadros das pessoas para a tela ficar maior';
+}
+$('stripBtn').onclick = e => {
+  e.stopPropagation(); stripHidden = !stripHidden;
+  try { localStorage.setItem('xc_strip', stripHidden ? '0' : '1'); } catch (x) {}
+  layout();
+};
 </script>
 </body>
 </html>
