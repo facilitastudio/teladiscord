@@ -719,6 +719,11 @@
   .pvol{display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;font-size:12px;color:var(--mut)}
   .pvol input{flex:1;accent-color:var(--acc);padding:0;border:0;background:none}
   .pvol b{min-width:36px;text-align:right;color:var(--soft)}
+  .tile .bar .vlab{display:flex;align-items:center;gap:6px;pointer-events:auto;background:rgba(6,18,31,.65);color:#fff;border-radius:999px;padding:3px 10px;cursor:default}
+  .tile .bar .vlab svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:#fff}
+  .tile .bar .vlab small{font-size:11px;font-weight:700;white-space:nowrap}
+  .tile .bar .vlab input{width:90px;accent-color:var(--acc);padding:0;border:0;background:none;height:18px}
+  .tile .bar .svol{background:none !important;padding:0 !important;height:18px !important}
 </style>
 </head>
 <body>
@@ -1233,7 +1238,21 @@ const local = { screen: null, cam: null, mic: null };
 const outCalls = new Map(), inCalls = new Map(), tiles = new Map(), audios = new Map();
 let focusId = null;
 let stripHidden = false;
-let sideHidden = false, screenVol = 100;
+let sideHidden = false, screenVol = 100, sendVol = 100, screenProc = null;
+try { sendVol = Number(localStorage.getItem('xc_sendvol') || 100); } catch (e) {}
+// som da tela que eu transmito passa por um controle de volume (vale para todo mundo que assiste)
+function withSendVolume(s) {
+  const a = s.getAudioTracks()[0]; if (!a) return s;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ctx.createMediaStreamSource(new MediaStream([a])), g = ctx.createGain(), dst = ctx.createMediaStreamDestination();
+    g.gain.value = sendVol / 100; src.connect(g).connect(dst);
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    screenProc = { ctx, g, raw: a };
+    a.addEventListener('ended', () => {});
+    return new MediaStream([...s.getVideoTracks(), dst.stream.getAudioTracks()[0]]);
+  } catch (e) { return s; }
+}
 try { sideHidden = localStorage.getItem('xc_side') === '0'; screenVol = Number(localStorage.getItem('xc_svol') || 100); } catch (e) {}
 const voiceVols = (() => { try { return JSON.parse(localStorage.getItem('xc_vols') || '{}'); } catch (e) { return {}; } })();
 const volOf = uid => (uid && typeof voiceVols[uid] === 'number') ? voiceVols[uid] : 1;
@@ -1784,7 +1803,7 @@ async function toggle(kind) {
     if (kind === 'screen') {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return toast('Este navegador não permite compartilhar a tela.');
       const opt = await screenPicker(); if (!opt) return;
-      s = await navigator.mediaDevices.getDisplayMedia(opt);
+      s = withSendVolume(await navigator.mediaDevices.getDisplayMedia(opt));
     } else if (kind === 'cam') s = await navigator.mediaDevices.getUserMedia({ video: camConstraints(), audio: false });
     else { const o = await openMic(); s = o.s; micProc = o.proc; }
   } catch (e) {
@@ -1820,6 +1839,7 @@ function stopLocal(kind, quiet) {
   const s = local[kind]; local[kind] = null;
   if (s) s.getTracks().forEach(t => t.stop());
   if (kind === 'mic') { closeProc(micProc); micProc = null; }
+  if (kind === 'screen' && screenProc) { try { screenProc.raw.stop(); screenProc.ctx.close(); } catch (e) {} screenProc = null; }
   outCalls.forEach((c, key) => { if (key.split(':')[1] === kind) { try { c.close(); } catch (e) {} outCalls.delete(key); } });
   removeTile('me:' + kind);
   if (kind === 'mic') { unwatchVoice(peerId); if (!quiet) sfx('mute'); }
@@ -1913,15 +1933,25 @@ function addTile(key, stream, label, mine, kind, speak) {
   t.className = 'tile' + (kind === 'cam' ? ' cam' : '') + (mine && kind === 'cam' ? ' mirror' : '');
   t.dataset.id = key;
   if (kind === 'cam' && speak) t.dataset.speak = speak;
-  t.innerHTML = '<video autoplay playsinline muted></video><div class="bar"><span></span><div>' + (!mine && kind === 'screen' ? '<input type="range" class="svol" min="0" max="100" title="Volume da tela" hidden><button data-a="som">Ativar som</button>' : '') + '<button data-a="full">Tela cheia</button></div></div>';
+  t.innerHTML = '<video autoplay playsinline muted></video><div class="bar"><span></span><div>' + (!mine && kind === 'screen' ? '<label class="vlab" title="Volume da tela para você"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6"/></svg><input type="range" class="svol" min="0" max="100"></label><button data-a="som">Ativar som</button>' : '')
+    + (mine && kind === 'screen' && screenProc ? '<label class="vlab" title="Volume do som da sua tela para todo mundo"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg><small>para todos</small><input type="range" class="sendvol" min="0" max="100"></label>' : '') + '<button data-a="full">Tela cheia</button></div></div>';
   setLabel(t, label);
   const v = t.querySelector('video'); v.srcObject = stream;
   const full = () => (t.requestFullscreen || t.webkitRequestFullscreen).call(t);
   t.querySelector('[data-a="full"]').onclick = full; v.ondblclick = full;
   const som = t.querySelector('[data-a="som"]');
   const svol = t.querySelector('.svol');
-  if (svol) { svol.value = screenVol; v.volume = screenVol / 100; svol.oninput = () => { screenVol = Number(svol.value); v.volume = screenVol / 100; try { localStorage.setItem('xc_svol', screenVol); } catch (e) {} }; svol.addEventListener('click', ev => ev.stopPropagation()); }
-  if (som) som.onclick = () => { t.wantSound = !t.wantSound; v.muted = deaf || !t.wantSound; som.textContent = t.wantSound ? 'Silenciar' : 'Ativar som'; if (svol) svol.hidden = !t.wantSound; v.play(); if (deaf && t.wantSound) toast('A chamada está silenciada. Clique no fone para voltar a ouvir.'); };
+  if (svol) {
+    svol.value = screenVol; v.volume = screenVol / 100;
+    svol.oninput = () => {
+      screenVol = Number(svol.value); v.volume = screenVol / 100; try { localStorage.setItem('xc_svol', screenVol); } catch (e) {}
+      if (!t.wantSound && screenVol > 0 && som) som.click(); // mexer no volume já liga o som
+    };
+  }
+  const sendvol = t.querySelector('.sendvol');
+  if (sendvol) { sendvol.value = sendVol; sendvol.oninput = () => { sendVol = Number(sendvol.value); if (screenProc) screenProc.g.gain.value = sendVol / 100; try { localStorage.setItem('xc_sendvol', sendVol); } catch (e) {} }; }
+  t.querySelectorAll('.vlab').forEach(l => l.addEventListener('click', ev => ev.stopPropagation()));
+  if (som) som.onclick = () => { t.wantSound = !t.wantSound; v.muted = deaf || !t.wantSound; som.textContent = t.wantSound ? 'Silenciar' : 'Ativar som'; v.play(); if (deaf && t.wantSound) toast('A chamada está silenciada. Clique no fone para voltar a ouvir.'); };
   t.querySelectorAll('button').forEach(b => b.addEventListener('click', ev => ev.stopPropagation()));
   t.addEventListener('click', () => { focusId = (focusId === key) ? null : key; layout(); });
   tiles.set(key, t); $grid.insertBefore(t, $strip); layout();
