@@ -702,6 +702,23 @@
   #stripBtn .n{background:var(--acc);color:#fff;border-radius:999px;font-size:11px;padding:0 6px;line-height:17px}
   html[data-theme="light"] #stripBtn{background:rgba(255,255,255,.6);border-color:rgba(13,34,54,.1)}
   html[data-theme="light"] .tile .bar button{color:#fff;background:rgba(6,18,31,.6)}
+  /* ocultar a lista de salas */
+  #sideToggle{width:34px;height:34px;padding:0;display:grid;place-items:center;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:var(--soft);flex-shrink:0;margin-right:4px}
+  #sideToggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  #app.noside #sideToggle .ar{transform:scaleX(-1);transform-origin:14px 12px}
+  html[data-theme="light"] #sideToggle{background:rgba(255,255,255,.6);border-color:rgba(13,34,54,.1)}
+  @media (min-width:761px){
+    #app.noside{grid-template-columns:0 minmax(0,1fr) 360px !important}
+    #app.noside.nochat{grid-template-columns:0 minmax(0,1fr) 0 !important}
+    #app.noside #side{visibility:hidden;overflow:hidden;min-width:0;border:0 !important}
+  }
+  @media (min-width:761px) and (max-width:1200px){#app.noside,#app.noside.nochat{grid-template-columns:0 minmax(0,1fr) !important}}
+  @media (max-width:760px){#sideToggle{display:none}}
+  /* volume da tela e da voz */
+  .tile .bar .svol{width:90px;accent-color:var(--acc);pointer-events:auto;background:rgba(6,18,31,.6);border-radius:999px;padding:4px 8px;border:0;height:24px}
+  .pvol{display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;font-size:12px;color:var(--mut)}
+  .pvol input{flex:1;accent-color:var(--acc);padding:0;border:0;background:none}
+  .pvol b{min-width:36px;text-align:right;color:var(--soft)}
 </style>
 </head>
 <body>
@@ -824,6 +841,7 @@
   <section id="main">
     <div class="top">
       <div class="t">
+        <button id="sideToggle" type="button" title="Ocultar a lista de salas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path class="ar" d="M15 10l-2 2 2 2"/></svg></button>
         <span id="roomIco"></span>
         <h2 id="roomTitle"></h2>
         <small id="roomInfo"></small>
@@ -1215,6 +1233,10 @@ const local = { screen: null, cam: null, mic: null };
 const outCalls = new Map(), inCalls = new Map(), tiles = new Map(), audios = new Map();
 let focusId = null;
 let stripHidden = false;
+let sideHidden = false, screenVol = 100;
+try { sideHidden = localStorage.getItem('xc_side') === '0'; screenVol = Number(localStorage.getItem('xc_svol') || 100); } catch (e) {}
+const voiceVols = (() => { try { return JSON.parse(localStorage.getItem('xc_vols') || '{}'); } catch (e) { return {}; } })();
+const volOf = uid => (uid && typeof voiceVols[uid] === 'number') ? voiceVols[uid] : 1;
 try { stripHidden = localStorage.getItem('xc_strip') === '0'; } catch (e) {}
 const musicRows = new Map();
 const chKey = () => chatView ? chatView.type + ':' + chatView.id : '';
@@ -1662,6 +1684,7 @@ function addAudio(id, s) {
   let a = audios.get(id);
   if (!a) { a = document.createElement('audio'); a.autoplay = true; document.body.appendChild(a); audios.set(id, a); }
   a.muted = deaf;
+  { const m = members.get(id) || (ghosts.get(id) || {}).m; a.volume = volOf(m && m.uid); }
   a.srcObject = s;
   unwatchVoice(id); watchVoice(id, s);
   a.play().catch(() => { $('sound').style.display = 'block'; });
@@ -1890,13 +1913,15 @@ function addTile(key, stream, label, mine, kind, speak) {
   t.className = 'tile' + (kind === 'cam' ? ' cam' : '') + (mine && kind === 'cam' ? ' mirror' : '');
   t.dataset.id = key;
   if (kind === 'cam' && speak) t.dataset.speak = speak;
-  t.innerHTML = '<video autoplay playsinline muted></video><div class="bar"><span></span><div>' + (!mine && kind === 'screen' ? '<button data-a="som">Ativar som</button>' : '') + '<button data-a="full">Tela cheia</button></div></div>';
+  t.innerHTML = '<video autoplay playsinline muted></video><div class="bar"><span></span><div>' + (!mine && kind === 'screen' ? '<input type="range" class="svol" min="0" max="100" title="Volume da tela" hidden><button data-a="som">Ativar som</button>' : '') + '<button data-a="full">Tela cheia</button></div></div>';
   setLabel(t, label);
   const v = t.querySelector('video'); v.srcObject = stream;
   const full = () => (t.requestFullscreen || t.webkitRequestFullscreen).call(t);
   t.querySelector('[data-a="full"]').onclick = full; v.ondblclick = full;
   const som = t.querySelector('[data-a="som"]');
-  if (som) som.onclick = () => { t.wantSound = !t.wantSound; v.muted = deaf || !t.wantSound; som.textContent = t.wantSound ? 'Silenciar' : 'Ativar som'; v.play(); if (deaf && t.wantSound) toast('A chamada está silenciada. Clique no fone para voltar a ouvir.'); };
+  const svol = t.querySelector('.svol');
+  if (svol) { svol.value = screenVol; v.volume = screenVol / 100; svol.oninput = () => { screenVol = Number(svol.value); v.volume = screenVol / 100; try { localStorage.setItem('xc_svol', screenVol); } catch (e) {} }; svol.addEventListener('click', ev => ev.stopPropagation()); }
+  if (som) som.onclick = () => { t.wantSound = !t.wantSound; v.muted = deaf || !t.wantSound; som.textContent = t.wantSound ? 'Silenciar' : 'Ativar som'; if (svol) svol.hidden = !t.wantSound; v.play(); if (deaf && t.wantSound) toast('A chamada está silenciada. Clique no fone para voltar a ouvir.'); };
   t.querySelectorAll('button').forEach(b => b.addEventListener('click', ev => ev.stopPropagation()));
   t.addEventListener('click', () => { focusId = (focusId === key) ? null : key; layout(); });
   tiles.set(key, t); $grid.insertBefore(t, $strip); layout();
@@ -2391,6 +2416,13 @@ async function showCard(uid, ev) {
       acts.appendChild(a);
     } else acts.appendChild(el('button', null, 'Pedido pendente'));
     const r = el('button', 'danger', 'Denunciar'); r.onclick = () => { closePop(); reportDialog(uname); }; acts.appendChild(r);
+  }
+  // volume da voz dessa pessoa (só para você)
+  if (uid !== me && [...members.values()].some(m => m.uid === uid && m.room && m.room === myRoom)) {
+    const vb = el('div', 'pvol'); const lab = el('span', null, 'Volume da voz'); const rg = el('input'); rg.type = 'range'; rg.min = 0; rg.max = 100; rg.value = Math.round(volOf(uid) * 100);
+    const val = el('b', null, rg.value + '%');
+    rg.oninput = () => { setVol(uid, Number(rg.value) / 100); val.textContent = rg.value + '%'; };
+    vb.append(lab, rg, val); pb.insertBefore(vb, acts);
   }
   pb.appendChild(acts);
   const pop = $('pop'); pop.innerHTML = ''; pop.appendChild(card);
@@ -3064,7 +3096,7 @@ async function dmRelay(c, announce) {
         if (dmCall !== c || c.lk !== me0) return;
         if (k === 'mic') {
           if (!c.audio) { c.audio = document.createElement('audio'); c.audio.autoplay = true; document.body.appendChild(c.audio); }
-          c.audio.srcObject = new MediaStream([track.mediaStreamTrack]); c.audio.muted = deaf; c.audio.play().catch(() => { $('sound').style.display = 'block'; });
+          c.audio.srcObject = new MediaStream([track.mediaStreamTrack]); c.audio.muted = deaf; c.audio.volume = volOf(c.other); c.audio.play().catch(() => { $('sound').style.display = 'block'; });
           if (!c.connected) { c.connected = true; c.t0 = Date.now(); stopRing(); }
         } else if (k === 'cam' || k === 'screen') { c.remoteVideo = new MediaStream([track.mediaStreamTrack]); c.remoteKind = k; }
         drawCall();
@@ -3115,7 +3147,7 @@ function onDmMedia(call) {
     if (dmCall !== c) return;
     if (md.kind === 'mic') {
       if (!c.audio) { c.audio = document.createElement('audio'); c.audio.autoplay = true; document.body.appendChild(c.audio); }
-      c.audio.srcObject = s; c.audio.muted = deaf; c.audio.play().catch(() => { $('sound').style.display = 'block'; });
+      c.audio.srcObject = s; c.audio.muted = deaf; c.audio.volume = volOf(c.other); c.audio.play().catch(() => { $('sound').style.display = 'block'; });
       if (!c.connected) { c.connected = true; c.t0 = Date.now(); stopRing(); }
       clearTimeout(c.lost);
     } else { c.remoteVideo = s; c.remoteKind = md.kind; }
@@ -3606,6 +3638,20 @@ $('stripBtn').onclick = e => {
   try { localStorage.setItem('xc_strip', stripHidden ? '0' : '1'); } catch (x) {}
   layout();
 };
+
+/* ===================== Ocultar salas e volumes ===================== */
+function applySide() {
+  $('app').classList.toggle('noside', sideHidden);
+  $('sideToggle').title = sideHidden ? 'Mostrar a lista de salas' : 'Ocultar a lista de salas';
+  setTimeout(layout, 50);
+}
+$('sideToggle').onclick = e => { e.stopPropagation(); sideHidden = !sideHidden; try { localStorage.setItem('xc_side', sideHidden ? '0' : '1'); } catch (x) {} applySide(); };
+applySide();
+function setVol(uid, v) {
+  voiceVols[uid] = v; try { localStorage.setItem('xc_vols', JSON.stringify(voiceVols)); } catch (e) {}
+  audios.forEach((a, id) => { const m = members.get(id); if (m && m.uid === uid) a.volume = v; });
+  if (dmCall && dmCall.other === uid && dmCall.audio) dmCall.audio.volume = v;
+}
 </script>
 </body>
 </html>
