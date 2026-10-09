@@ -1928,15 +1928,19 @@ const $grid = $('grid'), $strip = $('strip'), $empty = $('empty');
 function setLabel(t, txt) { const sp = t.querySelector('.bar span'); if (sp && sp.textContent !== txt) sp.textContent = txt; }
 function addTile(key, stream, label, mine, kind, speak) {
   let t = tiles.get(key);
-  if (t) { t.querySelector('video').srcObject = stream; setLabel(t, label); return; }
+  if (t) { const v0 = t.querySelector('video'); if (v0.srcObject !== stream) v0.srcObject = stream; kickVideo(v0); setLabel(t, label); return; }
   t = document.createElement('div');
   t.className = 'tile' + (kind === 'cam' ? ' cam' : '') + (mine && kind === 'cam' ? ' mirror' : '');
   t.dataset.id = key;
   if (kind === 'cam' && speak) t.dataset.speak = speak;
-  t.innerHTML = '<video autoplay playsinline muted></video><div class="bar"><span></span><div>' + (!mine && kind === 'screen' ? '<label class="vlab" title="Volume da tela para você"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6"/></svg><input type="range" class="svol" min="0" max="100"></label><button data-a="som">Ativar som</button>' : '')
+  t.innerHTML = '<video playsinline muted></video><div class="bar"><span></span><div>' + (!mine && kind === 'screen' ? '<label class="vlab" title="Volume da tela para você"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6"/></svg><input type="range" class="svol" min="0" max="100"></label><button data-a="som">Ativar som</button>' : '')
     + (mine && kind === 'screen' && screenProc ? '<label class="vlab" title="Volume do som da sua tela para todo mundo"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg><small>para todos</small><input type="range" class="sendvol" min="0" max="100"></label>' : '') + '<button data-a="full">Tela cheia</button></div></div>';
   setLabel(t, label);
-  const v = t.querySelector('video'); v.srcObject = stream;
+  const v = t.querySelector('video'); v.muted = true; v.srcObject = stream;
+  // o vídeo é iniciado na mão (o "autoplay" do navegador pausa vídeos que ficam fora de vista e não volta sozinho)
+  v.onloadedmetadata = () => kickVideo(v);
+  v.onpause = () => { if (v.srcObject && !document.hidden) setTimeout(() => kickVideo(v), 400); };
+  kickVideo(v);
   const full = () => (t.requestFullscreen || t.webkitRequestFullscreen).call(t);
   t.querySelector('[data-a="full"]').onclick = full; v.ondblclick = full;
   const som = t.querySelector('[data-a="som"]');
@@ -1956,6 +1960,16 @@ function addTile(key, stream, label, mine, kind, speak) {
   t.addEventListener('click', () => { focusId = (focusId === key) ? null : key; layout(); });
   tiles.set(key, t); $grid.insertBefore(t, $strip); layout();
 }
+// garante que o vídeo está rodando; se o navegador não deixar tocar com som, toca sem som
+function kickVideo(v) {
+  if (!v || !v.srcObject || !v.paused) return;
+  const p = v.play(); if (!p) return;
+  p.catch(() => {
+    if (!v.muted) { v.muted = true; const t = v.closest('.tile'); if (t) { t.wantSound = false; const b = t.querySelector('[data-a="som"]'); if (b) b.textContent = 'Ativar som'; } v.play().catch(() => {}); }
+  });
+}
+setInterval(() => { if (!document.hidden) tiles.forEach(t => kickVideo(t.querySelector('video'))); }, 2000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tiles.forEach(t => kickVideo(t.querySelector('video'))); });
 function removeTile(key) { const t = tiles.get(key); if (!t) return; const v = t.querySelector('video'); if (v) v.srcObject = null; t.remove(); tiles.delete(key); layout(); }
 function syncParticipants() {
   const inRoom = myRoom ? [...members.values()].filter(m => m.room === myRoom) : [];
@@ -3061,6 +3075,7 @@ function drawCall() {
   if (c.rv.srcObject !== (c.remoteVideo || null)) c.rv.srcObject = c.remoteVideo || null;
   c.rv.ondblclick = () => (vids.requestFullscreen || vids.webkitRequestFullscreen || (() => {})).call(vids);
   vids.append(c.rv, c.lv); box.appendChild(vids);
+  kickVideo(c.rv); kickVideo(c.lv);
   // botões
   const btns = el('div', 'btns');
   const B = (cls, icon, tip, fn) => { const b = el('button', cls); b.type = 'button'; b.innerHTML = icon; b.title = tip; b.onclick = fn; btns.appendChild(b); return b; };
